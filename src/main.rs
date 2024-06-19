@@ -1,10 +1,23 @@
+use futures_util::stream::TryStreamExt;
+use rand::random;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 use zbus::fdo::Result;
-use zbus::{interface, ConnectionBuilder};
+use zbus::{interface, ConnectionBuilder, MessageStream};
+use zvariant::{Array, Value};
 
 fn find_icon(icon_name: &str) -> Option<String> {
+    // Check whether the icon needs to be searched
+    if icon_name.starts_with('/') {
+        return Some(icon_name.to_string());
+    } else if icon_name.starts_with('~') {
+        return Some(
+            icon_name.replace('~', format!("{}/", std::env::var("HOME").unwrap()).as_str()),
+        );
+    }
     let icon_dir = "/usr/share/icons/AdwaitaLegacy/48x48/";
     // Recursively search for the icon in the icon directories
     for entry in WalkDir::new(icon_dir) {
@@ -19,8 +32,16 @@ fn find_icon(icon_name: &str) -> Option<String> {
     None
 }
 
+struct Notification {
+    app_name: String,
+    icon: String,
+    summary: String,
+    body: String,
+    timeout: i32,
+}
+
 struct NotificationDaemon {
-    notifications: Arc<Mutex<HashMap<u32, String>>>,
+    notifications: Arc<Mutex<HashMap<u32, Notification>>>,
     next_id: Arc<Mutex<u32>>,
 }
 
@@ -43,17 +64,79 @@ impl NotificationDaemon {
         let id = if replaces_id != 0 {
             replaces_id
         } else {
-            *next_id += 1;
+            *next_id = random::<u32>();
             *next_id
         };
-        notifications.insert(id, summary.to_string());
-        println!("Notification from: {}", app_name);
-        println!("Notification received: {} - {}", summary, body);
-        println!("Icon: {}", app_icon);
-        println!("Icon path: {:?}", find_icon(app_icon));
-        println!("Hints: {:?}", hints);
-        println!("Actions: {:?}", actions);
-        println!("Expire timeout: {}", expire_timeout);
+        let mut icon = find_icon(app_icon).unwrap_or_default();
+        if let Some(Value::Structure(icon_data)) = hints.get("image_data") {
+            println!("{:?}", icon_data);
+            let parent_dir = "/tmp/end-data";
+            if !Path::new(&parent_dir).exists() {
+                fs::create_dir_all(parent_dir).unwrap();
+            }
+            let icon_path = format!("{}/{}.png", parent_dir, id);
+            let width: i32 = icon_data.fields()[0]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let height: i32 = icon_data.fields()[1]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let _rowstride: i32 = icon_data.fields()[2]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let _has_alpha: bool = icon_data.fields()[3]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let _bits_per_sample: i32 = icon_data.fields()[4]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let _channels: i32 = icon_data.fields()[5]
+                .try_clone()
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let data = icon_data.fields()[6].try_clone().unwrap();
+            let mut vec_val: Vec<u8> = Vec::new();
+            match data {
+                Value::Array(data) => {
+                    data.iter()
+                        .map(|x| vec_val.push(x.try_clone().unwrap().try_into().unwrap()))
+                        .count();
+                }
+                _ => {
+                    println!("Invalid data type");
+                }
+            }
+
+            let _res = image::save_buffer(
+                &icon_path,
+                &vec_val,
+                width as u32,
+                height as u32,
+                image::ColorType::Rgba8,
+            );
+
+            println!("Icon saved at {}", icon_path);
+            icon = icon_path;
+        }
+        let notification = Notification {
+            app_name: app_name.to_string(),
+            icon,
+            summary: summary.to_string(),
+            body: body.to_string(),
+            timeout: expire_timeout,
+        };
+        notifications.insert(id, notification);
         id
     }
 
@@ -85,7 +168,7 @@ async fn main() -> Result<()> {
         next_id: Arc::new(Mutex::new(1)),
     };
 
-    let _connection = ConnectionBuilder::session()?
+    let connection = ConnectionBuilder::session()?
         .name("org.freedesktop.Notifications")?
         .serve_at("/org/freedesktop/Notifications", daemon)?
         .build()
@@ -93,6 +176,9 @@ async fn main() -> Result<()> {
 
     println!("Notification Daemon running...");
     loop {
-        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+        let mut stream = MessageStream::from(&connection);
+        while let Some(msg) = stream.try_next().await? {
+            println!("Got message: {}", msg);
+        }
     }
 }

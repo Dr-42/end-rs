@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rand = "0.8.5"
 zbus = {version = "4.3.0", features = ["tokio"]}
 zvariant = { version = "4.1.1" }
 tokio = {version = "1.38.0", features = ["full"]}
 walkdir = {version = "2.5.0"}
+futures-util = "0.3.30"
+serde = "1.0.203"
+image = "0.25.1"
