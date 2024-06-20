@@ -8,6 +8,7 @@ use zbus::fdo::Result;
 use zbus::{interface, ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
+use crate::config::Config;
 use crate::utils::{find_icon, save_icon};
 
 struct Notification {
@@ -97,7 +98,7 @@ impl NotificationDaemon {
     }
 }
 
-pub async fn launch_daemon() -> Result<()> {
+pub async fn launch_daemon(cfg: Config) -> Result<()> {
     let daemon = NotificationDaemon {
         notifications: Arc::new(Mutex::new(HashMap::new())),
         next_id: Arc::new(Mutex::new(1)),

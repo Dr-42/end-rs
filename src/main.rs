@@ -6,5 +6,6 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    daemon::launch_daemon().await
+    let cfg = config::parse_config();
+    daemon::launch_daemon(cfg).await
 }
