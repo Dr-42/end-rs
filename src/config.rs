@@ -14,6 +14,7 @@ pub struct Config {
     pub icon_theme_path: String,
     pub eww_window: String,
     pub eww_default_notification_key: String,
+    pub eww_default_notification_var: String,
     pub max_notifications: u32,
     pub notification_orientation: String,
     pub timeout: TimeoutConfig,
@@ -24,8 +25,9 @@ impl Default for Config {
         Config {
             eww_binary_path: String::from("eww"),
             icon_theme_path: String::from("/usr/share/icons/AdwaitaLegacy/48x48/"),
-            eww_window: String::from("notifications-frame"),
+            eww_window: String::from("notification-frame"),
             eww_default_notification_key: String::from("end-notification"),
+            eww_default_notification_var: String::from("end-notifications"),
             max_notifications: 10,
             notification_orientation: String::from("v"),
             timeout: TimeoutConfig {

@@ -2,6 +2,7 @@ use zbus::fdo::Result;
 
 mod config;
 mod daemon;
+mod ewwface;
 mod utils;
 
 #[tokio::main]

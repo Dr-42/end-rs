@@ -1,25 +1,25 @@
 use futures_util::stream::TryStreamExt;
 use rand::random;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use zbus::fdo::Result;
 use zbus::{interface, ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
 use crate::config::Config;
+use crate::ewwface::{eww_close_notifications, eww_update_notifications};
 use crate::utils::{find_icon, save_icon};
 
-struct Notification {
-    app_name: String,
-    icon: String,
-    summary: String,
-    body: String,
-    timeout: i32,
+pub struct Notification {
+    pub app_name: String,
+    pub icon: String,
+    pub summary: String,
+    pub body: String,
+    pub timeout: i32,
 }
 
 struct NotificationDaemon {
+    config: Config,
     notifications: Arc<Mutex<HashMap<u32, Notification>>>,
     next_id: Arc<Mutex<u32>>,
 }
@@ -34,7 +34,7 @@ impl NotificationDaemon {
         app_icon: &str,
         summary: &str,
         body: &str,
-        actions: Vec<&str>,
+        _actions: Vec<&str>,
         hints: HashMap<&str, zvariant::Value>,
         expire_timeout: i32,
     ) -> u32 {
@@ -74,6 +74,7 @@ impl NotificationDaemon {
             timeout: expire_timeout,
         };
         notifications.insert(id, notification);
+        eww_update_notifications(&self.config, &notifications);
         id
     }
 
@@ -81,6 +82,7 @@ impl NotificationDaemon {
         let mut notifications = self.notifications.lock().unwrap();
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
+            eww_close_notifications(&self.config)
         }
     }
 
@@ -102,6 +104,7 @@ pub async fn launch_daemon(cfg: Config) -> Result<()> {
     let daemon = NotificationDaemon {
         notifications: Arc::new(Mutex::new(HashMap::new())),
         next_id: Arc::new(Mutex::new(1)),
+        config: cfg,
     };
 
     let connection = ConnectionBuilder::session()?
