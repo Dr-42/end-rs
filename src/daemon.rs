@@ -99,10 +99,10 @@ impl NotificationDaemon {
             let notifications = Arc::clone(&self.notifications);
             let config_thread = Arc::clone(&self.config);
             tokio::spawn(async move {
-                let config = config_thread.lock().await;
                 sleep(Duration::from_millis(expire_timeout as u64)).await;
                 let mut notifications = notifications.lock().await;
                 if notifications.remove(&id).is_some() {
+                    let config = config_thread.lock().await;
                     eww_update_notifications(&config, &notifications);
                     if notifications.is_empty() {
                         eww_close_notifications(&config);
@@ -118,7 +118,12 @@ impl NotificationDaemon {
         let mut notifications = self.notifications.lock().await;
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
-            let config = self.config.lock().await;
+            let config = self.config.try_lock();
+            if config.is_err() {
+                println!("Failed to lock config");
+                return;
+            }
+            let config = config.unwrap();
             eww_update_notifications(&config, &notifications);
             if notifications.is_empty() {
                 eww_close_notifications(&config);
