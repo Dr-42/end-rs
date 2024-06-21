@@ -1,9 +1,12 @@
 use futures_util::stream::TryStreamExt;
 use rand::random;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
+use tokio::time::sleep;
 use zbus::fdo::Result;
-use zbus::{interface, Connection, ConnectionBuilder, MessageStream};
+use zbus::{interface, ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
 use crate::config::Config;
@@ -15,11 +18,10 @@ pub struct Notification {
     pub icon: String,
     pub summary: String,
     pub body: String,
-    pub timeout: i32,
 }
 
 struct NotificationDaemon {
-    config: Config,
+    config: Arc<Mutex<Config>>,
     notifications: Arc<Mutex<HashMap<u32, Notification>>>,
     next_id: Arc<Mutex<u32>>,
 }
@@ -27,7 +29,7 @@ struct NotificationDaemon {
 #[interface(name = "org.freedesktop.Notifications")]
 impl NotificationDaemon {
     #[allow(clippy::too_many_arguments)]
-    fn notify(
+    async fn notify(
         &self,
         app_name: &str,
         replaces_id: u32,
@@ -35,11 +37,11 @@ impl NotificationDaemon {
         summary: &str,
         body: &str,
         _actions: Vec<&str>,
-        hints: HashMap<&str, zvariant::Value>,
+        hints: HashMap<&str, zvariant::Value<'_>>,
         expire_timeout: i32,
     ) -> u32 {
-        let mut notifications = self.notifications.lock().unwrap();
-        let mut next_id = self.next_id.lock().unwrap();
+        let mut notifications = self.notifications.lock().await;
+        let mut next_id = self.next_id.lock().await;
         let id = if replaces_id != 0 {
             replaces_id
         } else {
@@ -66,25 +68,60 @@ impl NotificationDaemon {
             None
         }
         .unwrap_or_else(|| app_icon.to_string());
+
+        let mut expire_timeout = expire_timeout;
+        let config_main = self.config.lock().await;
+        if expire_timeout < 0 {
+            let urgency = hints.get("urgency").and_then(|value| match value {
+                Value::U8(urgency) => Some(*urgency),
+                _ => None,
+            });
+            match urgency {
+                Some(0) => expire_timeout = config_main.timeout.low as i32 * 1000,
+                Some(1) => expire_timeout = config_main.timeout.normal as i32 * 1000,
+                Some(2) => expire_timeout = config_main.timeout.critical as i32 * 1000,
+                _ => expire_timeout = config_main.timeout.normal as i32 * 1000,
+            }
+        }
+
         let notification = Notification {
             app_name: app_name.to_string(),
             icon,
             summary: summary.to_string(),
             body: body.to_string(),
-            timeout: expire_timeout,
         };
+
         notifications.insert(id, notification);
-        eww_update_notifications(&self.config, &notifications);
+        eww_update_notifications(&config_main, &notifications);
+
+        if expire_timeout != 0 {
+            // Spawn a task to handle timeout
+            let notifications = Arc::clone(&self.notifications);
+            let config_thread = Arc::clone(&self.config);
+            tokio::spawn(async move {
+                let config = config_thread.lock().await;
+                sleep(Duration::from_millis(expire_timeout as u64)).await;
+                let mut notifications = notifications.lock().await;
+                if notifications.remove(&id).is_some() {
+                    eww_update_notifications(&config, &notifications);
+                    if notifications.is_empty() {
+                        eww_close_notifications(&config);
+                    }
+                }
+            });
+        }
+
         id
     }
 
-    fn close_notification(&self, id: u32) {
-        let mut notifications = self.notifications.lock().unwrap();
+    async fn close_notification(&self, id: u32) {
+        let mut notifications = self.notifications.lock().await;
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
-            eww_update_notifications(&self.config, &notifications);
+            let config = self.config.lock().await;
+            eww_update_notifications(&config, &notifications);
             if notifications.is_empty() {
-                eww_close_notifications(&self.config);
+                eww_close_notifications(&config);
             }
         }
     }
@@ -107,7 +144,7 @@ pub async fn launch_daemon(cfg: Config) -> Result<()> {
     let daemon = NotificationDaemon {
         notifications: Arc::new(Mutex::new(HashMap::new())),
         next_id: Arc::new(Mutex::new(1)),
-        config: cfg,
+        config: Arc::new(Mutex::new(cfg)),
     };
 
     let connection = ConnectionBuilder::session()?
