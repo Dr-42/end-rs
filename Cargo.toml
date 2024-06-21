@@ -2,6 +2,11 @@
 name = "end-rs"
 version = "0.1.0"
 edition = "2021"
+description = "Eww notification daemon in rust"
+license = "BSD-2-Clause"
+homepage = "https://github.com/Dr-42/end-rs"
+repository = "https://github.com/Dr-42/end-rs"
+keywords = ["eww", "notification", "daemon", "rust", "zbus"]
 
 [dependencies]
 rand = "0.8.5"
