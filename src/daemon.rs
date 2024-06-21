@@ -3,7 +3,7 @@ use rand::random;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use zbus::fdo::Result;
-use zbus::{interface, ConnectionBuilder, MessageStream};
+use zbus::{interface, Connection, ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
 use crate::config::Config;
@@ -82,7 +82,10 @@ impl NotificationDaemon {
         let mut notifications = self.notifications.lock().unwrap();
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
-            eww_close_notifications(&self.config)
+            eww_update_notifications(&self.config, &notifications);
+            if notifications.is_empty() {
+                eww_close_notifications(&self.config);
+            }
         }
     }
 
@@ -108,9 +111,12 @@ pub async fn launch_daemon(cfg: Config) -> Result<()> {
     };
 
     let connection = ConnectionBuilder::session()?
-        .name("org.freedesktop.Notifications")?
         .serve_at("/org/freedesktop/Notifications", daemon)?
         .build()
+        .await?;
+
+    connection
+        .request_name("org.freedesktop.Notifications")
         .await?;
 
     println!("Notification Daemon running...");
@@ -120,4 +126,23 @@ pub async fn launch_daemon(cfg: Config) -> Result<()> {
             println!("Got message: {}", msg);
         }
     }
+}
+
+pub async fn close_notification(id: u32) -> Result<()> {
+    let connection = ConnectionBuilder::session()?.build().await?;
+
+    connection.request_name("org.dr42.notifproxy").await?;
+
+    // Send a message to the org.freedesktop.Notifications service
+    connection
+        .call_method(
+            Some("org.freedesktop.Notifications"),
+            "/org/freedesktop/Notifications",
+            Some("org.freedesktop.Notifications"),
+            "CloseNotification",
+            &(&id),
+        )
+        .await?;
+
+    Ok(())
 }
