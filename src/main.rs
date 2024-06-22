@@ -34,6 +34,22 @@ async fn main() -> Result<()> {
         } else if args[1] == "close" {
             let close_id = args[2].parse().expect("Invalid ID");
             daemon::close_notification(close_id).await?;
+        } else if args[1] == "history" {
+            if args.len() != 3 {
+                println!("Invalid argument");
+                print_help();
+                return Ok(());
+            } else if args[2] == "open" {
+                daemon::history(true).await?;
+            } else if args[2] == "close" {
+                daemon::history(false).await?;
+            } else if args[2] == "toggle" {
+                daemon::toggle_history().await?;
+            } else {
+                println!("Invalid argument");
+                print_help();
+                return Ok(());
+            }
         } else {
             println!("Invalid argument");
             print_help();

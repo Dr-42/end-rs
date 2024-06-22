@@ -10,9 +10,13 @@ use zbus::{interface, ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
 use crate::config::Config;
-use crate::ewwface::{eww_close_notifications, eww_update_notifications};
+use crate::ewwface::{
+    eww_close_history, eww_close_notifications, eww_toggle_history, eww_update_history,
+    eww_update_notifications,
+};
 use crate::utils::{find_icon, save_icon};
 
+#[derive(Clone)]
 pub struct Notification {
     pub app_name: String,
     pub icon: String,
@@ -23,6 +27,7 @@ pub struct Notification {
 struct NotificationDaemon {
     config: Arc<Mutex<Config>>,
     notifications: Arc<Mutex<HashMap<u32, Notification>>>,
+    notifications_history: Arc<Mutex<Vec<Notification>>>,
     next_id: Arc<Mutex<u32>>,
 }
 
@@ -91,9 +96,16 @@ impl NotificationDaemon {
             body: body.to_string(),
         };
 
+        let mut notifications_history = self.notifications_history.lock().await;
+        notifications_history.push(notification.clone());
+        // Release the lock before updating the notifications
+        if notifications_history.len() > config_main.max_notifications as usize {
+            notifications_history.remove(0);
+        }
+        drop(notifications_history);
+
         notifications.insert(id, notification);
         eww_update_notifications(&config_main, &notifications);
-
         if expire_timeout != 0 {
             // Spawn a task to handle timeout
             let notifications = Arc::clone(&self.notifications);
@@ -143,11 +155,56 @@ impl NotificationDaemon {
             "1.0".to_string(),
         )
     }
+
+    async fn open_history(&self) -> Result<()> {
+        println!("Getting history");
+        let config = self.config.try_lock();
+        if config.is_err() {
+            println!("Failed to lock config");
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock config".to_string(),
+            ));
+        }
+        let config = config.unwrap();
+        let history = self.notifications_history.lock().await;
+        eww_update_history(&config, &history);
+        Ok(())
+    }
+
+    async fn close_history(&self) -> Result<()> {
+        println!("Closing history");
+        let config = self.config.try_lock();
+        if config.is_err() {
+            println!("Failed to lock config");
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock config".to_string(),
+            ));
+        }
+        let config = config.unwrap();
+        eww_close_history(&config);
+        Ok(())
+    }
+
+    async fn toggle_history(&self) -> Result<()> {
+        println!("Toggling history");
+        let config = self.config.try_lock();
+        if config.is_err() {
+            println!("Failed to lock config");
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock config".to_string(),
+            ));
+        }
+        let config = config.unwrap();
+        let history = self.notifications_history.lock().await;
+        eww_toggle_history(&config, &history);
+        Ok(())
+    }
 }
 
 pub async fn launch_daemon(cfg: Config) -> Result<()> {
     let daemon = NotificationDaemon {
         notifications: Arc::new(Mutex::new(HashMap::new())),
+        notifications_history: Arc::new(Mutex::new(Vec::new())),
         next_id: Arc::new(Mutex::new(1)),
         config: Arc::new(Mutex::new(cfg)),
     };
@@ -173,7 +230,7 @@ pub async fn launch_daemon(cfg: Config) -> Result<()> {
 pub async fn close_notification(id: u32) -> Result<()> {
     let connection = ConnectionBuilder::session()?.build().await?;
 
-    connection.request_name("org.dr42.notifproxy").await?;
+    connection.request_name("org.dr42.notifproxyclose").await?;
 
     // Send a message to the org.freedesktop.Notifications service
     connection
@@ -183,6 +240,54 @@ pub async fn close_notification(id: u32) -> Result<()> {
             Some("org.freedesktop.Notifications"),
             "CloseNotification",
             &(&id),
+        )
+        .await?;
+
+    Ok(())
+}
+
+pub async fn history(open: bool) -> Result<()> {
+    let connection = ConnectionBuilder::session()?.build().await?;
+
+    connection.request_name("org.dr42.notifproxyhist").await?;
+
+    if open {
+        connection
+            .call_method(
+                Some("org.freedesktop.Notifications"),
+                "/org/freedesktop/Notifications",
+                Some("org.freedesktop.Notifications"),
+                "OpenHistory",
+                &(),
+            )
+            .await?;
+    } else {
+        connection
+            .call_method(
+                Some("org.freedesktop.Notifications"),
+                "/org/freedesktop/Notifications",
+                Some("org.freedesktop.Notifications"),
+                "CloseHistory",
+                &(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+pub async fn toggle_history() -> Result<()> {
+    let connection = ConnectionBuilder::session()?.build().await?;
+
+    connection.request_name("org.dr42.notifproxyhist").await?;
+
+    connection
+        .call_method(
+            Some("org.freedesktop.Notifications"),
+            "/org/freedesktop/Notifications",
+            Some("org.freedesktop.Notifications"),
+            "ToggleHistory",
+            &(),
         )
         .await?;
 

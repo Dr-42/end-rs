@@ -28,6 +28,19 @@ pub fn eww_close_window(cfg: &Config, window: &str) -> Result<(), std::io::Error
     Ok(())
 }
 
+pub fn eww_toggle_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
+    let mut cmd = String::new();
+    cmd.push_str(&cfg.eww_binary_path);
+    cmd.push_str(" open --toggle ");
+    cmd.push_str(window);
+    println!("{}", cmd);
+    std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&cmd)
+        .spawn()?;
+    Ok(())
+}
+
 pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
@@ -52,7 +65,8 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
 
     for notif in notifs {
         let widget_string = format!(
-            "(box (end-notification :notification \"{{\\\"actions\\\":[],\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
+            "(box ({} :notification \"{{\\\"actions\\\":[],\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
+            cfg.eww_default_notification_key,
             notif.1.app_name,
             notif.1.body,
             notif.1.icon,
@@ -73,4 +87,35 @@ pub fn eww_update_notifications(cfg: &Config, notifs: &HashMap<u32, Notification
 
 pub fn eww_close_notifications(cfg: &Config) {
     let _res = eww_close_window(cfg, &cfg.eww_window);
+}
+
+pub fn eww_create_history_value(cfg: &Config, history: &[Notification]) -> String {
+    let mut history_text = "(box :space-evenly false :orientation \"".to_string();
+    history_text.push_str(&cfg.notification_orientation);
+    history_text.push_str("\" ");
+
+    let history = history.iter().rev();
+
+    for hist in history {
+        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_key, hist.app_name, hist.body, hist.icon, hist.summary);
+        history_text.push_str(&widget_string);
+    }
+    history_text.push(')');
+    history_text
+}
+
+pub fn eww_update_history(cfg: &Config, history: &[Notification]) {
+    let widgets = eww_create_history_value(cfg, history);
+    eww_update_value(cfg, &cfg.eww_history_var, &widgets);
+    let _res = eww_open_window(cfg, &cfg.eww_history_window);
+}
+
+pub fn eww_close_history(cfg: &Config) {
+    let _res = eww_close_window(cfg, &cfg.eww_history_window);
+}
+
+pub fn eww_toggle_history(cfg: &Config, history: &[Notification]) {
+    let widgets = eww_create_history_value(cfg, history);
+    eww_update_value(cfg, &cfg.eww_history_var, &widgets);
+    let _res = eww_toggle_window(cfg, &cfg.eww_history_window);
 }
