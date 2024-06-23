@@ -53,29 +53,29 @@ impl NotificationDaemon {
             *next_id = random::<u32>();
             *next_id
         };
-        let icon = if !app_name.is_empty() {
-            find_icon(app_icon).or_else(|| {
-                hints
-                    .get("image_data")
-                    .and_then(|value| match value {
-                        Value::Structure(icon_data) => save_icon(icon_data, id),
-                        _ => None,
-                    })
-                    .or_else(|| {
-                        hints.get("image-data").and_then(|value| match value {
-                            Value::Structure(icon_data) => save_icon(icon_data, id),
-                            _ => None,
-                        })
-                    })
-                    .or_else(|| Some(app_icon.to_string()))
+        let config_main = self.config.lock().await;
+        let icon = hints
+            .get("image_data")
+            .and_then(|value| match value {
+                Value::Structure(icon_data) => save_icon(icon_data, id),
+                _ => None,
             })
-        } else {
-            None
-        }
-        .unwrap_or_else(|| app_icon.to_string());
+            .or_else(|| {
+                hints.get("image-data").and_then(|value| match value {
+                    Value::Structure(icon_data) => save_icon(icon_data, id),
+                    _ => None,
+                })
+            })
+            .or_else(|| {
+                if !app_name.is_empty() {
+                    find_icon(app_icon, &config_main).or_else(|| Some(app_icon.to_string()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| app_icon.to_string());
 
         let mut expire_timeout = expire_timeout;
-        let config_main = self.config.lock().await;
         if expire_timeout < 0 {
             let urgency = hints.get("urgency").and_then(|value| match value {
                 Value::U8(urgency) => Some(*urgency),

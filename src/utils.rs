@@ -2,31 +2,23 @@ use icon_loader::IconLoader;
 use std::{fs, path::Path};
 use zvariant::{Structure, Value};
 
-pub fn find_icon(icon_name: &str) -> Option<String> {
+use crate::config::Config;
+
+pub fn find_icon(icon_name: &str, config: &Config) -> Option<String> {
     // Check whether the icon needs to be searched
-    let loader = match IconLoader::new_kde() {
-        Ok(loader) => Some(loader),
-        Err(err) => {
-            println!("KDE icon loader failed: {:?}", err);
-            match IconLoader::new_gtk() {
-                Ok(loader) => Some(loader),
-                Err(err) => {
-                    println!("GTK icon loader failed: {:?}", err);
-                    let mut loader = IconLoader::new();
-                    loader.set_search_paths(["/usr/share/icons"]);
-                    loader.set_theme_name_provider("Adwaita");
-                    loader.update_theme_name().unwrap();
-                    Some(loader)
-                }
-            }
-        }
+    let mut loader = IconLoader::new();
+    loader.set_search_paths(&config.icon_dirs);
+    loader.set_theme_name_provider(config.icon_theme.clone());
+    let loader = match loader.update_theme_name() {
+        Ok(_) => loader,
+        Err(_) => return None,
     };
 
     if icon_name.starts_with('/') {
         Some(icon_name.to_string())
     } else if icon_name.starts_with('~') {
         Some(icon_name.replace('~', format!("{}/", std::env::var("HOME").unwrap()).as_str()))
-    } else if let Some(icon) = loader?.load_icon(icon_name) {
+    } else if let Some(icon) = loader.load_icon(icon_name) {
         let icon_path = icon.file_for_size(64).path().to_str().unwrap().to_string();
         Some(icon_path)
     } else {

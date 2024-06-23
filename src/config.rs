@@ -11,6 +11,8 @@ pub struct TimeoutConfig {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub eww_binary_path: String,
+    pub icon_dirs: Vec<String>,
+    pub icon_theme: String,
     pub eww_window: String,
     pub eww_default_notification_key: String,
     pub eww_default_notification_var: String,
@@ -25,7 +27,12 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            eww_binary_path: String::from("eww"),
+            eww_binary_path: String::from("~/.local/bin/eww"),
+            icon_dirs: vec![
+                String::from("/usr/share/icons"),
+                String::from("/usr/share/pixmaps"),
+            ],
+            icon_theme: String::from("Adwaita"),
             eww_window: String::from("notification-frame"),
             eww_default_notification_key: String::from("end-notification"),
             eww_default_notification_var: String::from("end-notifications"),
