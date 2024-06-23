@@ -1,28 +1,37 @@
+use icon_loader::IconLoader;
 use std::{fs, path::Path};
-use walkdir::WalkDir;
 use zvariant::{Structure, Value};
 
 pub fn find_icon(icon_name: &str) -> Option<String> {
     // Check whether the icon needs to be searched
+    let loader = match IconLoader::new_kde() {
+        Ok(loader) => Some(loader),
+        Err(err) => {
+            println!("KDE icon loader failed: {:?}", err);
+            match IconLoader::new_gtk() {
+                Ok(loader) => Some(loader),
+                Err(err) => {
+                    println!("GTK icon loader failed: {:?}", err);
+                    let mut loader = IconLoader::new();
+                    loader.set_search_paths(["/usr/share/icons"]);
+                    loader.set_theme_name_provider("Adwaita");
+                    loader.update_theme_name().unwrap();
+                    Some(loader)
+                }
+            }
+        }
+    };
+
     if icon_name.starts_with('/') {
-        return Some(icon_name.to_string());
+        Some(icon_name.to_string())
     } else if icon_name.starts_with('~') {
-        return Some(
-            icon_name.replace('~', format!("{}/", std::env::var("HOME").unwrap()).as_str()),
-        );
+        Some(icon_name.replace('~', format!("{}/", std::env::var("HOME").unwrap()).as_str()))
+    } else if let Some(icon) = loader?.load_icon(icon_name) {
+        let icon_path = icon.file_for_size(64).path().to_str().unwrap().to_string();
+        Some(icon_path)
+    } else {
+        None
     }
-    let icon_dir = "/usr/share/icons/AdwaitaLegacy/48x48/";
-    // Recursively search for the icon in the icon directories
-    for entry in WalkDir::new(icon_dir) {
-        if entry.is_err() {
-            continue;
-        }
-        let entry = entry.unwrap();
-        if entry.file_name().to_string_lossy().contains(icon_name) {
-            return Some(entry.path().to_string_lossy().to_string());
-        }
-    }
-    None
 }
 
 pub fn save_icon(icon_data: &Structure, id: u32) -> Option<String> {
