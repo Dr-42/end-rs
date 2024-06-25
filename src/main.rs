@@ -50,6 +50,15 @@ async fn main() -> Result<()> {
                 print_help();
                 return Ok(());
             }
+        } else if args[1] == "action" {
+            if args.len() != 4 {
+                println!("Invalid argument");
+                print_help();
+                return Ok(());
+            }
+            let action_id = args[2].parse().expect("Invalid ID");
+            let action_name = args[3].clone();
+            daemon::action_notification(action_id, &action_name).await?;
         } else {
             println!("Invalid argument");
             print_help();

@@ -64,9 +64,22 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
     widgets.push_str("\" ");
 
     for notif in notifs {
+        let mut action_string = "[".to_string();
+
+        for action in notif.1.actions.iter() {
+            let action_str = format!(
+                "{{\\\"id\\\":\\\"{}\\\",\\\"text\\\":\\\"{}\\\"}},",
+                action.0, action.1
+            );
+            action_string.push_str(&action_str);
+        }
+        action_string.pop();
+        action_string.push(']');
+
         let widget_string = format!(
-            "(box ({} :notification \"{{\\\"actions\\\":[],\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
+            "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
             cfg.eww_default_notification_key,
+            action_string,
             notif.1.app_name,
             notif.1.body,
             notif.1.icon,

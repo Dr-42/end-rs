@@ -505,6 +505,7 @@ dependencies = [
  "tokio",
  "toml",
  "zbus",
+ "zbus_macros",
  "zvariant",
 ]
 
