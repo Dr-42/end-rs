@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::daemon::Notification;
+use crate::notifdaemon::Notification;
 use std::collections::HashMap;
 
 pub fn eww_open_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
@@ -73,7 +73,9 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
             );
             action_string.push_str(&action_str);
         }
-        action_string.pop();
+        if !notif.1.actions.is_empty() {
+            action_string.pop();
+        }
         action_string.push(']');
 
         let widget_string = format!(

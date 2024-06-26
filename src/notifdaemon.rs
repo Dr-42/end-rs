@@ -1,5 +1,4 @@
-use futures_util::stream::TryStreamExt;
-use rand::random;
+#![allow(clippy::too_many_arguments)]
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,7 +7,6 @@ use tokio::time::sleep;
 use zbus::fdo::Result;
 use zbus::interface;
 use zbus::object_server::SignalContext;
-use zbus::{ConnectionBuilder, MessageStream};
 use zvariant::Value;
 
 use crate::config::Config;
@@ -24,20 +22,21 @@ pub struct Notification {
     pub icon: String,
     pub summary: String,
     pub body: String,
-    pub actions: HashMap<String, String>,
+    pub actions: Vec<(String, String)>,
 }
 
-struct NotificationDaemon {
-    config: Arc<Mutex<Config>>,
-    notifications: Arc<Mutex<HashMap<u32, Notification>>>,
-    notifications_history: Arc<Mutex<Vec<Notification>>>,
+pub struct NotificationDaemon {
+    pub config: Arc<Mutex<Config>>,
+    pub notifications: Arc<Mutex<HashMap<u32, Notification>>>,
+    pub notifications_history: Arc<Mutex<Vec<Notification>>>,
+    pub connection: Arc<Mutex<zbus::Connection>>,
+    pub next_id: u32,
 }
 
 #[interface(name = "org.freedesktop.Notifications")]
 impl NotificationDaemon {
-    #[allow(clippy::too_many_arguments)]
     async fn notify(
-        &self,
+        &mut self,
         app_name: &str,
         replaces_id: u32,
         app_icon: &str,
@@ -47,11 +46,11 @@ impl NotificationDaemon {
         hints: HashMap<&str, zvariant::Value<'_>>,
         expire_timeout: i32,
     ) -> Result<u32> {
-        let mut notifications = self.notifications.lock().await;
         let id = if replaces_id != 0 {
             replaces_id
         } else {
-            random::<u32>()
+            self.next_id += 1;
+            self.next_id
         };
         let config_main = self.config.lock().await;
         let icon = hints
@@ -89,15 +88,21 @@ impl NotificationDaemon {
             }
         }
 
-        let mut actions_map = HashMap::new();
-        for i in 0..actions.len() / 2 {
-            actions_map.insert(actions[i * 2].to_string(), actions[i * 2 + 1].to_string());
-        }
+        // create a actions vector of type Vec<(String, String)> where even elements are keys and
+        // odd elements are values
+        let actions: Vec<(String, String)> = actions
+            .chunks(2)
+            .map(|chunk| {
+                let key = chunk.first().unwrap_or(&"").to_string();
+                let value = chunk.get(1).unwrap_or(&"").to_string();
+                (key, value)
+            })
+            .collect();
 
         let notification = Notification {
             app_name: app_name.to_string(),
             icon,
-            actions: actions_map,
+            actions,
             summary: summary.to_string(),
             body: body.to_string(),
         };
@@ -110,6 +115,7 @@ impl NotificationDaemon {
         }
         drop(notifications_history);
 
+        let mut notifications = self.notifications.lock().await;
         notifications.insert(id, notification);
         eww_update_notifications(&config_main, &notifications);
         if expire_timeout != 0 {
@@ -148,8 +154,18 @@ impl NotificationDaemon {
             if notifications.is_empty() {
                 eww_close_notifications(&config);
             }
+            let dest: Option<&str> = None;
+            let conn = self.connection.lock().await;
+            conn.emit_signal(
+                dest,
+                "/org/freedesktop/Notifications",
+                "org.freedesktop.Notifications",
+                "NotificationClosed",
+                &(id, 3_u32),
+            )
+            .await
+            .unwrap();
         }
-
         Ok(())
     }
 
@@ -209,109 +225,11 @@ impl NotificationDaemon {
         eww_toggle_history(&config, &history);
         Ok(())
     }
-}
+    #[zbus(signal)]
+    async fn action_invoked(ctx: &SignalContext<'_>, id: u32, action_key: &str)
+        -> zbus::Result<()>;
 
-pub async fn launch_daemon(cfg: Config) -> Result<()> {
-    let daemon = NotificationDaemon {
-        notifications: Arc::new(Mutex::new(HashMap::new())),
-        notifications_history: Arc::new(Mutex::new(Vec::new())),
-        config: Arc::new(Mutex::new(cfg)),
-    };
-    let connection = ConnectionBuilder::session()?
-        .name("org.freedesktop.Notifications")?
-        .serve_at("/org/freedesktop/Notifications", daemon)?
-        .build()
-        .await?;
-
-    println!("Notification Daemon running...");
-    loop {
-        let mut stream = MessageStream::from(&connection);
-        while let Some(msg) = stream.try_next().await? {
-            println!("Got message: {}", msg);
-        }
-    }
-}
-
-pub async fn close_notification(id: u32) -> Result<()> {
-    let connection = ConnectionBuilder::session()?.build().await?;
-
-    connection.request_name("org.dr42.notifproxyclose").await?;
-
-    // Send a message to the org.freedesktop.Notifications service
-    connection
-        .call_method(
-            Some("org.freedesktop.Notifications"),
-            "/org/freedesktop/Notifications",
-            Some("org.freedesktop.Notifications"),
-            "CloseNotification",
-            &(&id),
-        )
-        .await?;
-
-    Ok(())
-}
-
-pub async fn history(open: bool) -> Result<()> {
-    let connection = ConnectionBuilder::session()?.build().await?;
-
-    connection.request_name("org.dr42.notifproxyhist").await?;
-
-    if open {
-        connection
-            .call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "OpenHistory",
-                &(),
-            )
-            .await?;
-    } else {
-        connection
-            .call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "CloseHistory",
-                &(),
-            )
-            .await?;
-    }
-
-    Ok(())
-}
-
-pub async fn toggle_history() -> Result<()> {
-    let connection = ConnectionBuilder::session()?.build().await?;
-
-    connection.request_name("org.dr42.notifproxyhist").await?;
-
-    connection
-        .call_method(
-            Some("org.freedesktop.Notifications"),
-            "/org/freedesktop/Notifications",
-            Some("org.freedesktop.Notifications"),
-            "ToggleHistory",
-            &(),
-        )
-        .await?;
-
-    Ok(())
-}
-
-pub async fn action_notification(notig_id: u32, action: &str) -> Result<()> {
-    let connection = ConnectionBuilder::session()?.build().await?;
-    connection.request_name("org.dr42.notifproxyaction").await?;
-
-    connection
-        .call_method(
-            Some("org.freedesktop.Notifications"),
-            "/org/freedesktop/Notifications",
-            Some("org.freedesktop.Notifications"),
-            "ActionInvoked",
-            &(notig_id, action),
-        )
-        .await?;
-
-    Ok(())
+    #[zbus(signal)]
+    async fn notification_closed(ctx: &SignalContext<'_>, id: u32, reason: u32)
+        -> zbus::Result<()>;
 }
