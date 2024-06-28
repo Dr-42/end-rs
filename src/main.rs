@@ -1,3 +1,4 @@
+use ewwface::{eww_create_reply_widget, eww_open_window, eww_update_value};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
@@ -67,6 +68,25 @@ async fn main() -> Result<()> {
         socktools::run_daemon(conn).await?;
         loop {
             sleep(Duration::from_secs(1)).await;
+        }
+    } else if arg == "action" {
+        if args.len() < 4 {
+            eprintln!("Invalid number of arguments for action");
+            return Err(zbus::fdo::Error::Failed(
+                "Invalid number of arguments for action".to_string(),
+            ));
+        }
+        if args[3] == "inline-reply" {
+            println!("Opening inline reply window");
+            let id = args[2].parse::<u32>().unwrap();
+            let eww_widget_str = &eww_create_reply_widget(id);
+            println!("{}", eww_widget_str);
+            eww_update_value(&cfg, "reply-text", "");
+            eww_update_value(&cfg, "reply-widget-content", eww_widget_str);
+            let _ = eww_open_window(&cfg, "notification-reply");
+        } else {
+            socktools::send_message(args[1..].to_vec()).await?;
+            println!("Action sent");
         }
     } else {
         socktools::send_message(args[1..].to_vec()).await?;

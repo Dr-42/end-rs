@@ -11,8 +11,8 @@ use zvariant::Value;
 
 use crate::config::Config;
 use crate::ewwface::{
-    eww_close_history, eww_close_notifications, eww_toggle_history, eww_update_history,
-    eww_update_notifications,
+    eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history,
+    eww_update_history, eww_update_notifications,
 };
 use crate::utils::{find_icon, save_icon};
 
@@ -225,6 +225,29 @@ impl NotificationDaemon {
         eww_toggle_history(&config, &history);
         Ok(())
     }
+
+    async fn reply_close(&self, id: u32) -> Result<()> {
+        println!("Closing reply window");
+        let mut notifications = self.notifications.lock().await;
+        if let Some(notification) = notifications.get_mut(&id) {
+            notification.actions.clear();
+            let config = self.config.try_lock();
+            if config.is_err() {
+                println!("Failed to lock config");
+                return Err(zbus::fdo::Error::Failed(
+                    "Failed to lock config".to_string(),
+                ));
+            }
+            let config = config.unwrap();
+            eww_update_notifications(&config, &notifications);
+            eww_close_window(&config, "notification-reply").map_err(|e| {
+                eprintln!("Failed to close reply window: {}", e);
+                zbus::fdo::Error::Failed("Failed to close reply window".to_string())
+            })?;
+        }
+        Ok(())
+    }
+
     #[zbus(signal)]
     async fn action_invoked(ctx: &SignalContext<'_>, id: u32, action_key: &str)
         -> zbus::Result<()>;
@@ -232,4 +255,11 @@ impl NotificationDaemon {
     #[zbus(signal)]
     async fn notification_closed(ctx: &SignalContext<'_>, id: u32, reason: u32)
         -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn notification_replied(
+        ctx: &SignalContext<'_>,
+        id: u32,
+        message: &str,
+    ) -> zbus::Result<()>;
 }

@@ -94,6 +94,10 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
     widgets
 }
 
+pub fn eww_create_reply_widget(id: u32) -> String {
+    format!("(box (reply-widget :id {}))", id)
+}
+
 pub fn eww_update_notifications(cfg: &Config, notifs: &HashMap<u32, Notification>) {
     let widgets = eww_create_notifications_value(cfg, notifs);
     eww_update_value(cfg, &cfg.eww_default_notification_var, &widgets);

@@ -15,6 +15,8 @@ enum DaemonActions {
     CloseHistory,
     ToggleHistory,
     ActionInvoked(u32, String),
+    ReplySend(u32, String),
+    ReplyClose(u32),
 }
 
 async fn handle_connection(stream: UnixStream, tx: mpsc::Sender<String>) {
@@ -116,6 +118,57 @@ pub async fn run_daemon(conn: Arc<Mutex<Connection>>) -> Result<()> {
                     .await
                     .unwrap();
                 }
+                DaemonActions::ReplySend(id, reply) => {
+                    println!("Replying to notification {}", id);
+                    conn.emit_signal(
+                        dest,
+                        "/org/freedesktop/Notifications",
+                        "org.freedesktop.Notifications",
+                        "NotificationReplied",
+                        &(id, reply),
+                    )
+                    .await
+                    .unwrap();
+                    conn.call_method(
+                        Some("org.freedesktop.Notifications"),
+                        "/org/freedesktop/Notifications",
+                        Some("org.freedesktop.Notifications"),
+                        "ReplyClose",
+                        &(id),
+                    )
+                    .await
+                    .unwrap();
+                    conn.call_method(
+                        Some("org.freedesktop.Notifications"),
+                        "/org/freedesktop/Notifications",
+                        Some("org.freedesktop.Notifications"),
+                        "CloseNotification",
+                        &(id),
+                    )
+                    .await
+                    .unwrap();
+                }
+                DaemonActions::ReplyClose(id) => {
+                    println!("Closing reply for notification {}", id);
+                    conn.call_method(
+                        Some("org.freedesktop.Notifications"),
+                        "/org/freedesktop/Notifications",
+                        Some("org.freedesktop.Notifications"),
+                        "ReplyClose",
+                        &(id),
+                    )
+                    .await
+                    .unwrap();
+                    conn.call_method(
+                        Some("org.freedesktop.Notifications"),
+                        "/org/freedesktop/Notifications",
+                        Some("org.freedesktop.Notifications"),
+                        "CloseNotification",
+                        &(id),
+                    )
+                    .await
+                    .unwrap();
+                }
             };
         }
     });
@@ -175,8 +228,26 @@ pub async fn send_message(args: Vec<String>) -> Result<()> {
                 }
                 DaemonActions::ActionInvoked(args[1].parse::<u32>().unwrap(), args[2].to_string())
             }
+            "reply-send" => {
+                if args.len() < 3 {
+                    return Err(zbus::fdo::Error::Failed(
+                        "Invalid command to reply-send".to_string(),
+                    ));
+                }
+                println!("Sending reply {} {}", args[1], args[2]);
+                DaemonActions::ReplySend(args[1].parse::<u32>().unwrap(), args[2].to_string())
+            }
+            "reply-close" => {
+                if args.len() < 2 {
+                    return Err(zbus::fdo::Error::Failed(
+                        "Invalid command to reply-close".to_string(),
+                    ));
+                }
+                DaemonActions::ReplyClose(args[2].parse::<u32>().unwrap())
+            }
             _ => {
-                return Err(zbus::fdo::Error::Failed("Invalid command".to_string()));
+                let err = format!("Invalid command {}", args[0]);
+                return Err(zbus::fdo::Error::Failed(err));
             }
         };
 
