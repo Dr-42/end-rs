@@ -11,6 +11,7 @@ use zbus::fdo::Result;
 use zbus::Connection;
 
 use crate::config::Config;
+use crate::ewwface::{eww_create_reply_widget, eww_open_window, eww_update_value};
 use crate::notifdaemon::NotificationDaemon;
 
 #[derive(Serialize, Deserialize)]
@@ -48,13 +49,14 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     })?;
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
+    let cfg = Arc::new(Mutex::new(cfg));
 
     // Initialize daemon-specific structures
     let connection = Connection::session().await?;
     let daemon = NotificationDaemon {
         notifications: Arc::new(Mutex::new(HashMap::new())),
         notifications_history: Arc::new(Mutex::new(Vec::new())),
-        config: Arc::new(Mutex::new(cfg)),
+        config: Arc::clone(&cfg),
         next_id: 0,
         connection: Arc::new(Mutex::new(connection)),
     };
@@ -68,6 +70,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     let conn = Arc::new(Mutex::new(conn));
 
     tokio::spawn(async move {
+        let cfg = Arc::clone(&cfg);
         while let Some(message) = rx.recv().await {
             let conn = conn.lock().await;
             println!("Received: {}", message);
@@ -120,24 +123,39 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     .unwrap();
                 }
                 DaemonActions::ActionInvoked(id, action) => {
-                    conn.emit_signal(
-                        dest,
-                        "/org/freedesktop/Notifications",
-                        "org.freedesktop.Notifications",
-                        "ActionInvoked",
-                        &(id, action),
-                    )
-                    .await
-                    .unwrap();
-                    conn.emit_signal(
-                        dest,
-                        "/org/freedesktop/Notifications",
-                        "org.freedesktop.Notifications",
-                        "NotificationClosed",
-                        &(id, 3_u32),
-                    )
-                    .await
-                    .unwrap();
+                    if action == "inline-reply" {
+                        let cfg = cfg.try_lock();
+                        if cfg.is_err() {
+                            eprintln!("Failed to lock config");
+                            continue;
+                        }
+                        let cfg = cfg.unwrap();
+                        println!("Opening inline reply window");
+                        let eww_widget_str = &eww_create_reply_widget(id);
+                        println!("{}", eww_widget_str);
+                        eww_update_value(&cfg, "reply-text", "");
+                        eww_update_value(&cfg, "reply-widget-content", eww_widget_str);
+                        let _ = eww_open_window(&cfg, "notification-reply");
+                    } else {
+                        conn.emit_signal(
+                            dest,
+                            "/org/freedesktop/Notifications",
+                            "org.freedesktop.Notifications",
+                            "ActionInvoked",
+                            &(id, action),
+                        )
+                        .await
+                        .unwrap();
+                        conn.emit_signal(
+                            dest,
+                            "/org/freedesktop/Notifications",
+                            "org.freedesktop.Notifications",
+                            "NotificationClosed",
+                            &(id, 3_u32),
+                        )
+                        .await
+                        .unwrap();
+                    }
                 }
                 DaemonActions::ReplySend(id, reply) => {
                     println!("Replying to notification {}", id);
