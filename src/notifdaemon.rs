@@ -35,7 +35,7 @@ pub struct NotificationDaemon {
 
 #[interface(name = "org.freedesktop.Notifications")]
 impl NotificationDaemon {
-    async fn notify(
+    pub async fn notify(
         &mut self,
         app_name: &str,
         replaces_id: u32,
@@ -138,7 +138,7 @@ impl NotificationDaemon {
         Ok(id)
     }
 
-    async fn close_notification(&self, id: u32) -> Result<()> {
+    pub async fn close_notification(&self, id: u32) -> Result<()> {
         let mut notifications = self.notifications.lock().await;
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
@@ -169,11 +169,11 @@ impl NotificationDaemon {
         Ok(())
     }
 
-    fn get_capabilities(&self) -> Vec<String> {
+    pub fn get_capabilities(&self) -> Vec<String> {
         vec!["body".to_string(), "actions".to_string()]
     }
 
-    fn get_server_information(&self) -> Result<(String, String, String, String)> {
+    pub fn get_server_information(&self) -> Result<(String, String, String, String)> {
         Ok((
             "NotificationDaemon".to_string(),
             "1.0".to_string(),
@@ -182,7 +182,7 @@ impl NotificationDaemon {
         ))
     }
 
-    async fn open_history(&self) -> Result<()> {
+    pub async fn open_history(&self) -> Result<()> {
         println!("Getting history");
         let config = self.config.try_lock();
         if config.is_err() {
@@ -197,7 +197,7 @@ impl NotificationDaemon {
         Ok(())
     }
 
-    async fn close_history(&self) -> Result<()> {
+    pub async fn close_history(&self) -> Result<()> {
         println!("Closing history");
         let config = self.config.try_lock();
         if config.is_err() {
@@ -211,7 +211,7 @@ impl NotificationDaemon {
         Ok(())
     }
 
-    async fn toggle_history(&self) -> Result<()> {
+    pub async fn toggle_history(&self) -> Result<()> {
         println!("Toggling history");
         let config = self.config.try_lock();
         if config.is_err() {
@@ -226,7 +226,7 @@ impl NotificationDaemon {
         Ok(())
     }
 
-    async fn reply_close(&self, id: u32) -> Result<()> {
+    pub async fn reply_close(&self, id: u32) -> Result<()> {
         println!("Closing reply window");
         let mut notifications = self.notifications.lock().await;
         if let Some(notification) = notifications.get_mut(&id) {
@@ -249,15 +249,21 @@ impl NotificationDaemon {
     }
 
     #[zbus(signal)]
-    async fn action_invoked(ctx: &SignalContext<'_>, id: u32, action_key: &str)
-        -> zbus::Result<()>;
+    pub async fn action_invoked(
+        ctx: &SignalContext<'_>,
+        id: u32,
+        action_key: &str,
+    ) -> zbus::Result<()>;
 
     #[zbus(signal)]
-    async fn notification_closed(ctx: &SignalContext<'_>, id: u32, reason: u32)
-        -> zbus::Result<()>;
+    pub async fn notification_closed(
+        ctx: &SignalContext<'_>,
+        id: u32,
+        reason: u32,
+    ) -> zbus::Result<()>;
 
     #[zbus(signal)]
-    async fn notification_replied(
+    pub async fn notification_replied(
         ctx: &SignalContext<'_>,
         id: u32,
         message: &str,

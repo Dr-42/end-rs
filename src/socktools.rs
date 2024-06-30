@@ -73,54 +73,30 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         let cfg = Arc::clone(&cfg);
         while let Some(message) = rx.recv().await {
             let conn = conn.lock().await;
+
+            let iface_ref = conn
+                .object_server()
+                .interface::<_, NotificationDaemon>("/org/freedesktop/Notifications")
+                .await
+                .unwrap();
+
+            let iface = iface_ref.get_mut().await;
             println!("Received: {}", message);
             let message: DaemonActions = serde_json::from_str(&message).unwrap();
             let dest: Option<&str> = None;
 
             match message {
                 DaemonActions::CloseNotification(id) => {
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "CloseNotification",
-                        &(id),
-                    )
-                    .await
-                    .unwrap();
+                    iface.close_notification(id).await.unwrap();
                 }
                 DaemonActions::OpenHistory => {
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "OpenHistory",
-                        &(),
-                    )
-                    .await
-                    .unwrap();
+                    iface.open_history().await.unwrap();
                 }
                 DaemonActions::CloseHistory => {
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "CloseHistory",
-                        &(),
-                    )
-                    .await
-                    .unwrap();
+                    iface.close_history().await.unwrap();
                 }
                 DaemonActions::ToggleHistory => {
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "ToggleHistory",
-                        &(),
-                    )
-                    .await
-                    .unwrap();
+                    iface.toggle_history().await.unwrap();
                 }
                 DaemonActions::ActionInvoked(id, action) => {
                     if action == "inline-reply" {
@@ -168,15 +144,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     )
                     .await
                     .unwrap();
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "ReplyClose",
-                        &(id),
-                    )
-                    .await
-                    .unwrap();
+                    iface.reply_close(id).await.unwrap();
                     conn.call_method(
                         Some("org.freedesktop.Notifications"),
                         "/org/freedesktop/Notifications",
@@ -198,15 +166,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     )
                     .await
                     .unwrap();
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "CloseNotification",
-                        &(id),
-                    )
-                    .await
-                    .unwrap();
+                    iface.reply_close(id).await.unwrap();
                 }
             };
         }
