@@ -1,12 +1,17 @@
 #![allow(clippy::too_many_arguments)]
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{mpsc, Mutex};
+use zbus::conn::Builder;
 use zbus::fdo::Result;
 use zbus::Connection;
+
+use crate::config::Config;
+use crate::notifdaemon::NotificationDaemon;
 
 #[derive(Serialize, Deserialize)]
 enum DaemonActions {
@@ -28,7 +33,7 @@ async fn handle_connection(stream: UnixStream, tx: mpsc::Sender<String>) {
     }
 }
 
-pub async fn run_daemon(conn: Arc<Mutex<Connection>>) -> Result<()> {
+pub async fn run_daemon(cfg: Config) -> Result<()> {
     let path = "/tmp/rust_ipc_socket";
     if Path::new(path).exists() {
         std::fs::remove_file(path).map_err(|e| {
@@ -44,7 +49,23 @@ pub async fn run_daemon(conn: Arc<Mutex<Connection>>) -> Result<()> {
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
 
-    let conn = Arc::clone(&conn);
+    // Initialize daemon-specific structures
+    let connection = Connection::session().await?;
+    let daemon = NotificationDaemon {
+        notifications: Arc::new(Mutex::new(HashMap::new())),
+        notifications_history: Arc::new(Mutex::new(Vec::new())),
+        config: Arc::new(Mutex::new(cfg)),
+        next_id: 0,
+        connection: Arc::new(Mutex::new(connection)),
+    };
+
+    let conn = Builder::session()?
+        .name("org.freedesktop.Notifications")?
+        .serve_at("/org/freedesktop/Notifications", daemon)?
+        .build()
+        .await?;
+
+    let conn = Arc::new(Mutex::new(conn));
 
     tokio::spawn(async move {
         while let Some(message) = rx.recv().await {

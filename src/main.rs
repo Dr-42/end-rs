@@ -1,11 +1,5 @@
 use ewwface::{eww_create_reply_widget, eww_open_window, eww_update_value};
-use std::collections::HashMap;
 use std::env;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Mutex;
-use tokio::time::sleep;
-use zbus::connection;
 use zbus::fdo::Result;
 
 pub mod config;
@@ -13,7 +7,6 @@ pub mod ewwface;
 pub mod notifdaemon;
 pub mod socktools;
 pub mod utils;
-use crate::notifdaemon::NotificationDaemon;
 
 fn print_help() {
     println!("end-rs {}", env!("CARGO_PKG_VERSION"));
@@ -47,28 +40,8 @@ async fn main() -> Result<()> {
         println!("end-rs {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     } else if arg == "daemon" {
-        // Initialize daemon-specific structures
-        let connection = connection::Connection::session().await?;
-        let daemon = NotificationDaemon {
-            notifications: Arc::new(Mutex::new(HashMap::new())),
-            notifications_history: Arc::new(Mutex::new(Vec::new())),
-            config: Arc::new(Mutex::new(cfg)),
-            next_id: 0,
-            connection: Arc::new(Mutex::new(connection)),
-        };
-
-        let conn = connection::Builder::session()?
-            .name("org.freedesktop.Notifications")?
-            .serve_at("/org/freedesktop/Notifications", daemon)?
-            .build()
-            .await?;
-
         println!("Notification Daemon running...");
-        let conn = Arc::new(Mutex::new(conn));
-        socktools::run_daemon(conn).await?;
-        loop {
-            sleep(Duration::from_secs(1)).await;
-        }
+        socktools::run_daemon(cfg).await?;
     } else if arg == "action" {
         if args.len() < 4 {
             eprintln!("Invalid number of arguments for action");
