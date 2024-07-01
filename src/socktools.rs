@@ -112,6 +112,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                         eww_update_value(&cfg, "reply-text", "");
                         eww_update_value(&cfg, "reply-widget-content", eww_widget_str);
                         let _ = eww_open_window(&cfg, "notification-reply");
+                        iface.disable_timeout(id).await.unwrap();
                     } else {
                         conn.emit_signal(
                             dest,
@@ -145,15 +146,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     .await
                     .unwrap();
                     iface.reply_close(id).await.unwrap();
-                    conn.call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "CloseNotification",
-                        &(id),
-                    )
-                    .await
-                    .unwrap();
+                    iface.close_notification(id).await.unwrap();
                 }
                 DaemonActions::ReplyClose(id) => {
                     println!("Closing reply for notification {}", id);

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use zbus::fdo::Result;
 use zbus::interface;
@@ -16,19 +17,27 @@ use crate::ewwface::{
 };
 use crate::utils::{find_icon, save_icon};
 
-#[derive(Clone)]
 pub struct Notification {
     pub app_name: String,
     pub icon: String,
     pub summary: String,
     pub body: String,
     pub actions: Vec<(String, String)>,
+    pub timeout_cancelled: bool,
+    pub timeout_future: Option<JoinHandle<()>>,
+}
+
+pub struct HistoryNotification {
+    pub app_name: String,
+    pub icon: String,
+    pub summary: String,
+    pub body: String,
 }
 
 pub struct NotificationDaemon {
     pub config: Arc<Mutex<Config>>,
     pub notifications: Arc<Mutex<HashMap<u32, Notification>>>,
-    pub notifications_history: Arc<Mutex<Vec<Notification>>>,
+    pub notifications_history: Arc<Mutex<Vec<HistoryNotification>>>,
     pub connection: Arc<Mutex<zbus::Connection>>,
     pub next_id: u32,
 }
@@ -99,41 +108,54 @@ impl NotificationDaemon {
             })
             .collect();
 
-        let notification = Notification {
+        let history_notification = HistoryNotification {
             app_name: app_name.to_string(),
-            icon,
-            actions,
+            icon: icon.clone(),
             summary: summary.to_string(),
             body: body.to_string(),
         };
-
         let mut notifications_history = self.notifications_history.lock().await;
-        notifications_history.push(notification.clone());
+        notifications_history.push(history_notification);
         // Release the lock before updating the notifications
         if notifications_history.len() > config_main.max_notifications as usize {
             notifications_history.remove(0);
         }
         drop(notifications_history);
 
-        let mut notifications = self.notifications.lock().await;
-        notifications.insert(id, notification);
-        eww_update_notifications(&config_main, &notifications);
+        let mut join_handle = None;
         if expire_timeout != 0 {
             // Spawn a task to handle timeout
             let notifications = Arc::clone(&self.notifications);
             let config_thread = Arc::clone(&self.config);
-            tokio::spawn(async move {
+            join_handle = Some(tokio::spawn(async move {
                 sleep(Duration::from_millis(expire_timeout as u64)).await;
                 let mut notifications = notifications.lock().await;
-                if notifications.remove(&id).is_some() {
-                    let config = config_thread.lock().await;
-                    eww_update_notifications(&config, &notifications);
-                    if notifications.is_empty() {
-                        eww_close_notifications(&config);
+                if let Some(notif) = notifications.remove(&id) {
+                    if let Ok(config) = config_thread.try_lock() {
+                        if !notif.timeout_cancelled {
+                            eww_update_notifications(&config, &notifications);
+                            if notifications.is_empty() {
+                                eww_close_notifications(&config);
+                            }
+                        }
                     }
                 }
-            });
+            }));
         }
+
+        let notification = Notification {
+            app_name: app_name.to_string(),
+            icon: icon.clone(),
+            actions,
+            summary: summary.to_string(),
+            body: body.to_string(),
+            timeout_cancelled: false,
+            timeout_future: join_handle,
+        };
+
+        let mut notifications = self.notifications.lock().await;
+        notifications.insert(id, notification);
+        eww_update_notifications(&config_main, &notifications);
 
         Ok(id)
     }
@@ -229,22 +251,22 @@ impl NotificationDaemon {
     pub async fn reply_close(&self, id: u32) -> Result<()> {
         println!("Closing reply window");
         let mut notifications = self.notifications.lock().await;
+        let config = self.config.try_lock();
+        if config.is_err() {
+            println!("Failed to lock config");
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock config".to_string(),
+            ));
+        }
+        let config = config.unwrap();
         if let Some(notification) = notifications.get_mut(&id) {
             notification.actions.clear();
-            let config = self.config.try_lock();
-            if config.is_err() {
-                println!("Failed to lock config");
-                return Err(zbus::fdo::Error::Failed(
-                    "Failed to lock config".to_string(),
-                ));
-            }
-            let config = config.unwrap();
             eww_update_notifications(&config, &notifications);
-            eww_close_window(&config, "notification-reply").map_err(|e| {
-                eprintln!("Failed to close reply window: {}", e);
-                zbus::fdo::Error::Failed("Failed to close reply window".to_string())
-            })?;
         }
+        eww_close_window(&config, "notification-reply").map_err(|e| {
+            eprintln!("Failed to close reply window: {}", e);
+            zbus::fdo::Error::Failed("Failed to close reply window".to_string())
+        })?;
         Ok(())
     }
 
@@ -268,4 +290,14 @@ impl NotificationDaemon {
         id: u32,
         message: &str,
     ) -> zbus::Result<()>;
+}
+
+impl NotificationDaemon {
+    pub async fn disable_timeout(&self, id: u32) -> Result<()> {
+        let mut notifications = self.notifications.lock().await;
+        if let Some(notification) = notifications.get_mut(&id) {
+            notification.timeout_cancelled = true;
+        }
+        Ok(())
+    }
 }
