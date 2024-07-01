@@ -471,7 +471,7 @@ checksum = "3dca9240753cf90908d7e4aac30f630662b02aebaa1b58a3cadabdb23385b58b"
 
 [[package]]
 name = "end-rs"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "futures-util",
  "icon-loader",
