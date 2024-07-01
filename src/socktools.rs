@@ -220,22 +220,26 @@ pub async fn send_message(args: Vec<String>) -> Result<()> {
                 }
                 DaemonActions::ActionInvoked(args[1].parse::<u32>().unwrap(), args[2].to_string())
             }
-            "reply-send" => {
+            "reply" => {
                 if args.len() < 3 {
                     return Err(zbus::fdo::Error::Failed(
-                        "Invalid command to reply-send".to_string(),
+                        "Invalid command to reply".to_string(),
                     ));
                 }
-                println!("Sending reply {} {}", args[1], args[2]);
-                DaemonActions::ReplySend(args[1].parse::<u32>().unwrap(), args[2].to_string())
-            }
-            "reply-close" => {
-                if args.len() < 2 {
-                    return Err(zbus::fdo::Error::Failed(
-                        "Invalid command to reply-close".to_string(),
-                    ));
+                match args[1].as_str() {
+                    "send" => {
+                        if args.len() < 4 {
+                            return Err(zbus::fdo::Error::Failed(
+                                "Invalid command to reply-send".to_string(),
+                            ));
+                        }
+                        DaemonActions::ReplySend(args[2].parse::<u32>().unwrap(), args[3].clone())
+                    }
+                    "close" => DaemonActions::ReplyClose(args[2].parse::<u32>().unwrap()),
+                    _ => {
+                        return Err(zbus::fdo::Error::Failed("Invalid command".to_string()));
+                    }
                 }
-                DaemonActions::ReplyClose(args[2].parse::<u32>().unwrap())
             }
             _ => {
                 let err = format!("Invalid command {}", args[0]);
