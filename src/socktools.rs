@@ -107,11 +107,11 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                         }
                         let cfg = cfg.unwrap();
                         println!("Opening inline reply window");
-                        let eww_widget_str = &eww_create_reply_widget(id);
+                        let eww_widget_str = &eww_create_reply_widget(&cfg, id);
                         println!("{}", eww_widget_str);
-                        eww_update_value(&cfg, "reply-text", "");
-                        eww_update_value(&cfg, "reply-widget-content", eww_widget_str);
-                        let _ = eww_open_window(&cfg, "notification-reply");
+                        eww_update_value(&cfg, &cfg.eww_reply_text, "");
+                        eww_update_value(&cfg, &cfg.eww_reply_var, eww_widget_str);
+                        let _ = eww_open_window(&cfg, &cfg.eww_reply_window);
                         iface.disable_timeout(id).await.unwrap();
                     } else {
                         conn.emit_signal(

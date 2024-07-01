@@ -263,7 +263,7 @@ impl NotificationDaemon {
             notification.actions.clear();
             eww_update_notifications(&config, &notifications);
         }
-        eww_close_window(&config, "notification-reply").map_err(|e| {
+        eww_close_window(&config, &config.eww_reply_window).map_err(|e| {
             eprintln!("Failed to close reply window: {}", e);
             zbus::fdo::Error::Failed("Failed to close reply window".to_string())
         })?;

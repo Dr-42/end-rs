@@ -80,7 +80,7 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
 
         let widget_string = format!(
             "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
-            cfg.eww_default_notification_key,
+            cfg.eww_notification_var,
             action_string,
             notif.1.app_name,
             notif.1.body,
@@ -94,18 +94,18 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
     widgets
 }
 
-pub fn eww_create_reply_widget(id: u32) -> String {
-    format!("(box (reply-widget :id {}))", id)
+pub fn eww_create_reply_widget(cfg: &Config, id: u32) -> String {
+    format!("(box ({} :id {}))", cfg.eww_reply_widget, id)
 }
 
 pub fn eww_update_notifications(cfg: &Config, notifs: &HashMap<u32, Notification>) {
     let widgets = eww_create_notifications_value(cfg, notifs);
-    eww_update_value(cfg, &cfg.eww_default_notification_var, &widgets);
-    let _res = eww_open_window(cfg, &cfg.eww_window);
+    eww_update_value(cfg, &cfg.eww_notification_var, &widgets);
+    let _res = eww_open_window(cfg, &cfg.eww_notification_window);
 }
 
 pub fn eww_close_notifications(cfg: &Config) {
-    let _res = eww_close_window(cfg, &cfg.eww_window);
+    let _res = eww_close_window(cfg, &cfg.eww_notification_window);
 }
 
 pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -> String {
@@ -116,7 +116,7 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
     let history = history.iter().rev();
 
     for hist in history {
-        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_key, hist.app_name, hist.body, hist.icon, hist.summary);
+        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_var, hist.app_name, hist.body, hist.icon, hist.summary);
         history_text.push_str(&widget_string);
     }
     history_text.push(')');
