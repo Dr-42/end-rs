@@ -107,7 +107,7 @@ All commands require the daemon to be running except for the generate command.
 
 ## Configuration
 
-End checks `$XDG_CONFIG_HOME/end-rs` (most likely `~/.config/end`) for a `config.toml`. If the file is not found, it will create one with the default values.
+End checks `$XDG_CONFIG_HOME/end-rs` (most likely `~/.config/end-rs`) for a `config.toml`. If the file is not found, it will create one with the default values.
 
 **All fields are madatory unlike the original end**
 
