@@ -9,12 +9,12 @@ If you already use [eww](https://github.com/elkowar/eww) for your widgets, would
 
 ## Features
 
-[x] Display notifications using eww
-[x] Customizable notification appearance
-[x] Customizable notification duration
-[x] Notification history
-[x] Notification actions
-[x] In-reply for notifications (not in the freedesktop notification spec)
+- Display notifications using eww
+- Customizable notification appearance
+- Customizable notification duration
+- Notification history
+- Notification actions
+- In-reply for notifications (not in the freedesktop notification spec)
 
 ## Getting Started
 
