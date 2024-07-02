@@ -1,0 +1,83 @@
+$bar_bg: #282c34;
+$bar_fg: #abb2bf;
+$bar_border: #3b4048;
+$reply_hover: #3b4048;
+
+.end-default-notification-box {
+    background-color: $bar_bg;
+    padding: 12px;
+    padding-left: 8px;
+    margin: 12px;
+    border-radius: 10px;
+}
+
+.notification-text {
+    color: $bar_fg;
+    font-family: 'JetBrainsMono Nerd Font';
+}
+
+.notification-title {
+  font-weight: bold;
+  font-size: 1em;
+}
+
+.notification-content {
+  font-size: .8em;
+}
+
+.end-notification-buttons {
+    margin-top: 12px;
+}
+
+.end-notification-button {
+    background-color: $bar_bg;
+    color: $bar_fg;
+    padding: 8px;
+    border-radius: 10px;
+    margin-right: 12px;
+    border: 1px solid $bar_border;
+}
+
+.end-notification-reply {
+    background-color: $bar_bg;
+    color: $bar_fg;
+    padding: 8px;
+    border-radius: 10px;
+    margin-right: 12px;
+    border: 1px solid $bar_border;
+}
+
+.end-notification-reply:hover:focus {
+    background-color: $bar_fg;
+    color: $reply_hover;
+    padding: 8px;
+    border-radius: 10px;
+    margin-right: 12px;
+    border: 1px solid $bar_border;
+}
+
+.end-notification-button:hover {
+    background-color: $bar_fg;
+    color: $bar_bg;
+    padding: 8px;
+    border-radius: 10px;
+    margin-right: 12px;
+    border: 1px solid $bar_border;
+}
+
+.end-history-frame {
+    background-color: $bar_bg;
+    padding: 12px;
+    padding-left: 8px;
+    border-radius: 10px;
+}
+
+.end-history-box {
+    background-color: $bar_bg;
+    padding: 12px;
+    padding-left: 8px;
+}
+
+.content-box {
+    margin-left: 12px;
+}

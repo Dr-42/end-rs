@@ -3,6 +3,7 @@ use zbus::fdo::Result;
 
 pub mod config;
 pub mod ewwface;
+pub mod generator;
 pub mod notifdaemon;
 pub mod socktools;
 pub mod utils;
@@ -19,6 +20,8 @@ fn print_help() {
     println!("  close <id> - Close a notification with the given ID");
     println!("  history <open|close|toggle> - Open, close or toggle the notification history");
     println!("  action <id> <action> - Perform an action on a notification with the given ID");
+    println!();
+    println!("  generate [css|yuck|all] - Generate the eww config files");
 }
 
 #[tokio::main]
@@ -38,6 +41,27 @@ async fn main() -> Result<()> {
     } else if arg == "-v" || arg == "--version" {
         println!("end-rs {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
+    } else if arg == "generate" {
+        if args.len() < 3 {
+            print_help();
+            return Ok(());
+        }
+        let arg = &args[2];
+        let mut css = false;
+        let mut yuck = false;
+        if arg == "css" {
+            css = true;
+        } else if arg == "yuck" {
+            yuck = true;
+        } else if arg == "all" {
+            css = true;
+            yuck = true;
+        } else {
+            print_help();
+            return Ok(());
+        }
+        generator::generate_files(css, yuck).await?;
+        println!("Files generated");
     } else if arg == "daemon" {
         println!("Notification Daemon running...");
         socktools::run_daemon(cfg).await?;
