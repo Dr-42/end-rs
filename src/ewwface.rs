@@ -42,14 +42,15 @@ pub fn eww_toggle_window(cfg: &Config, window: &str) -> Result<(), std::io::Erro
 }
 
 pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
+    let value = shlex::try_quote(value).unwrap().replace('\n', "<br>");
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" update ");
     cmd.push_str(var);
     cmd.push('=');
-    cmd.push('\'');
-    cmd.push_str(value);
-    cmd.push('\'');
+    //cmd.push('\'');
+    cmd.push_str(&value);
+    //cmd.push('\'');
     println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
