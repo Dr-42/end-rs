@@ -15,6 +15,7 @@ If you already use [eww](https://github.com/elkowar/eww) for your widgets, would
 - Notification history
 - Notification actions
 - In-reply for notifications (not in the freedesktop notification spec)
+- Multi-monitor support
 
 ## Getting Started
 
@@ -124,6 +125,7 @@ icon_dirs = [
 ### The theme to use for the icons
 icon_theme = "Adwaita"
 ### The default notification window
+### Can be a single string or a vector of strings(for multi-monitor support)
 eww_notification_window = "notification-frame"
 ### The default notification widget
 eww_notification_widget = "end-notification"
