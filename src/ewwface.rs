@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, NotificationWindow};
 use crate::notifdaemon::{HistoryNotification, Notification};
 use std::collections::HashMap;
 
@@ -102,11 +102,29 @@ pub fn eww_create_reply_widget(cfg: &Config, id: u32) -> String {
 pub fn eww_update_notifications(cfg: &Config, notifs: &HashMap<u32, Notification>) {
     let widgets = eww_create_notifications_value(cfg, notifs);
     eww_update_value(cfg, &cfg.eww_notification_var, &widgets);
-    let _res = eww_open_window(cfg, &cfg.eww_notification_window);
+    match &cfg.eww_notification_window {
+        NotificationWindow::Single(window) => {
+            let _res = eww_open_window(cfg, window);
+        }
+        NotificationWindow::Multiple(windows) => {
+            windows.iter().for_each(|window| {
+                let _res = eww_open_window(cfg, window);
+            });
+        }
+    }
 }
 
 pub fn eww_close_notifications(cfg: &Config) {
-    let _res = eww_close_window(cfg, &cfg.eww_notification_window);
+    match &cfg.eww_notification_window {
+        NotificationWindow::Single(window) => {
+            let _res = eww_close_window(cfg, window);
+        }
+        NotificationWindow::Multiple(windows) => {
+            windows.iter().for_each(|window| {
+                let _res = eww_close_window(cfg, window);
+            });
+        }
+    }
 }
 
 pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -> String {

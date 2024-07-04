@@ -9,11 +9,24 @@ pub struct TimeoutConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NotificationWindow {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl Default for NotificationWindow {
+    fn default() -> Self {
+        NotificationWindow::Single(String::from("notification-frame"))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub eww_binary_path: String,
     pub icon_dirs: Vec<String>,
     pub icon_theme: String,
-    pub eww_notification_window: String,
+    pub eww_notification_window: NotificationWindow,
     pub eww_notification_widget: String,
     pub eww_notification_var: String,
     pub eww_history_window: String,
@@ -37,7 +50,7 @@ impl Default for Config {
                 String::from("/usr/share/pixmaps"),
             ],
             icon_theme: String::from("Adwaita"),
-            eww_notification_window: String::from("notification-frame"),
+            eww_notification_window: NotificationWindow::default(),
             eww_notification_widget: String::from("end-notification"),
             eww_notification_var: String::from("end-notifications"),
             eww_history_window: String::from("history-frame"),
