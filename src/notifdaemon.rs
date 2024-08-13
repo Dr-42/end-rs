@@ -31,6 +31,7 @@ pub struct Notification {
 pub struct HistoryNotification {
     pub app_name: String,
     pub icon: String,
+    pub app_icon: String,
     pub summary: String,
     pub body: String,
 }
@@ -114,6 +115,7 @@ impl NotificationDaemon {
         let history_notification = HistoryNotification {
             app_name: app_name.to_string(),
             icon: icon.clone(),
+            app_icon: app_icon.clone(),
             summary: summary.to_string(),
             body: body.to_string(),
         };
