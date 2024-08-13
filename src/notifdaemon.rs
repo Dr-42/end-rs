@@ -20,6 +20,7 @@ use crate::utils::{find_icon, save_icon};
 pub struct Notification {
     pub app_name: String,
     pub icon: String,
+    pub app_icon: String,
     pub summary: String,
     pub body: String,
     pub actions: Vec<(String, String)>,
@@ -82,6 +83,8 @@ impl NotificationDaemon {
                 }
             })
             .unwrap_or_else(|| app_icon.to_string());
+
+        let app_icon = find_icon(app_name, &config_main).unwrap_or("".into());
 
         let mut expire_timeout = expire_timeout;
         if expire_timeout < 0 {
@@ -146,6 +149,7 @@ impl NotificationDaemon {
         let notification = Notification {
             app_name: app_name.to_string(),
             icon: icon.clone(),
+            app_icon,
             actions,
             summary: summary.to_string(),
             body: body.to_string(),
