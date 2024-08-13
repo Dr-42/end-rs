@@ -136,7 +136,7 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
     let history = history.iter().rev();
 
     for hist in history {
-        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.summary);
+        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.app_icon, hist.summary);
         history_text.push_str(&widget_string);
     }
     history_text.push(')');
