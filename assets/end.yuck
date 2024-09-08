@@ -21,7 +21,6 @@
 
 (defwindow history-frame
   :monitor 0
-  :css getcss
   :class "end-history-frame"
   :geometry (geometry 
    :x "0px"
@@ -57,7 +56,6 @@
     :valign "start"
     :height 100
     (box
-      :css getcss
       :class "end-default-notification-box"
       :orientation "horizontal"
       :space-evenly false
@@ -67,20 +65,17 @@
         :image-height 100
       )
       (box
-        :css getcss
         :class "content-box"
         :valign "start"
         :orientation "vertical"
         :space-evenly "false"
         (label 
-          :css getcss
           :class "notification-text notification-title"
           :valign "start"
           :yalign 0
           :xalign 0
           :text {notification.summary})
         (label
-          :css getcss
           :class "notification-text notification-content"
           :valign "start"
           :yalign 0
@@ -90,7 +85,6 @@
           :text {notification.body})
       )
       (box
-        :css getcss
         :class "end-notification-buttons"
         :orientation "horizontal"
         :space-evenly false
@@ -98,7 +92,6 @@
         :vexpand false
         (for action in {notification.actions}
           (button
-            :css getcss
             :class "end-notification-button"
             :onclick "${end-binary} action ${notification.id} ${action.id}"
             :vexpand false
@@ -110,7 +103,6 @@
     :onclick "${end-binary} history close"
     :height 50
     (box
-      :css getcss
       :class "end-history-box"
       :orientation "horizontal"
       :space-evenly false
@@ -121,18 +113,15 @@
         :image-height 50
       )
       (box
-        :css getcss
         :class "content-box"
         :orientation "vertical"
         :space-evenly false
         (label 
-          :css getcss
           :class "notification-text notification-title"
           :yalign 1
           :xalign 0
           :text {history.summary})
         (label
-          :css getcss
           :class "notification-text notification-content"
           :yalign 1
           :xalign 0
@@ -141,28 +130,23 @@
 
 (defwidget end-reply[id]
   (box
-    :css getcss
     :class "end-default-notification-box"
     :orientation "vertical"
     :space-evenly false
     (input
-      :css getcss
       :class "end-notification-reply"
       :value end-reply-text
       :onchange "${EWW_CMD} update end-reply-text='{}'")
     (box
-      :css getcss
       :class "end-notification-buttons"
       :orientation "horizontal"
       :space-evenly false
       (button
-        :css getcss
         :class "end-notification-button"
         :onclick `${end-binary} reply send ${id} "${end-reply-text}"`
         :vexpand false
         "Reply")
       (button
-        :css getcss
         :class "end-notification-button"
         :onclick "${end-binary} reply close ${id}"
         :vexpand false
