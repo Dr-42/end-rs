@@ -40,7 +40,7 @@ pub struct NotificationDaemon {
     pub config: Arc<Config>,
     pub notifications: Arc<Mutex<HashMap<u32, Notification>>>,
     pub notifications_history: Arc<RwLock<Vec<HistoryNotification>>>,
-    pub connection: Arc<Mutex<zbus::Connection>>,
+    pub connection: zbus::Connection,
     pub next_id: u32,
 }
 
@@ -172,16 +172,16 @@ impl NotificationDaemon {
                 eww_close_notifications(&self.config);
             }
             let dest: Option<&str> = None;
-            let conn = self.connection.lock().await;
-            conn.emit_signal(
-                dest,
-                "/org/freedesktop/Notifications",
-                "org.freedesktop.Notifications",
-                "NotificationClosed",
-                &(id, 3_u32),
-            )
-            .await
-            .unwrap();
+            self.connection
+                .emit_signal(
+                    dest,
+                    "/org/freedesktop/Notifications",
+                    "org.freedesktop.Notifications",
+                    "NotificationClosed",
+                    &(id, 3_u32),
+                )
+                .await
+                .unwrap();
         }
         Ok(())
     }

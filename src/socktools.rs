@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use zbus::conn::Builder;
 use zbus::fdo::Result;
 use zbus::Connection;
@@ -57,7 +57,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         notifications_history: Default::default(),
         config: Arc::clone(&cfg),
         next_id: 0,
-        connection: Arc::new(Mutex::new(connection)),
+        connection,
     };
 
     let conn = Builder::session()?
@@ -66,13 +66,9 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         .build()
         .await?;
 
-    let conn = Arc::new(Mutex::new(conn));
-
     tokio::spawn(async move {
         let cfg = Arc::clone(&cfg);
         while let Some(message) = rx.recv().await {
-            let conn = conn.lock().await;
-
             let iface_ref = conn
                 .object_server()
                 .interface::<_, NotificationDaemon>("/org/freedesktop/Notifications")
