@@ -1,11 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, Mutex};
 use zbus::conn::Builder;
 use zbus::fdo::Result;
 use zbus::Connection;
@@ -54,8 +53,8 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     // Initialize daemon-specific structures
     let connection = Connection::session().await?;
     let daemon = NotificationDaemon {
-        notifications: Arc::new(Mutex::new(HashMap::new())),
-        notifications_history: Arc::new(RwLock::new(Vec::new())),
+        notifications: Default::default(),
+        notifications_history: Default::default(),
         config: Arc::clone(&cfg),
         next_id: 0,
         connection: Arc::new(Mutex::new(connection)),
