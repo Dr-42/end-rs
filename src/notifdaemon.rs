@@ -37,7 +37,7 @@ pub struct HistoryNotification {
 }
 
 pub struct NotificationDaemon {
-    pub config: Arc<Mutex<Config>>,
+    pub config: Arc<Config>,
     pub notifications: Arc<Mutex<HashMap<u32, Notification>>>,
     pub notifications_history: Arc<Mutex<Vec<HistoryNotification>>>,
     pub connection: Arc<Mutex<zbus::Connection>>,
@@ -63,7 +63,6 @@ impl NotificationDaemon {
             self.next_id += 1;
             self.next_id
         };
-        let config_main = self.config.lock().await;
         let icon = hints
             .get("image_data")
             .and_then(|value| match value {
@@ -78,14 +77,14 @@ impl NotificationDaemon {
             })
             .or_else(|| {
                 if !app_name.is_empty() {
-                    find_icon(app_icon, &config_main).or_else(|| Some(app_icon.to_string()))
+                    find_icon(app_icon, &self.config).or_else(|| Some(app_icon.to_string()))
                 } else {
                     None
                 }
             })
             .unwrap_or_else(|| app_icon.to_string());
 
-        let app_icon = find_icon(app_name, &config_main).unwrap_or("".into());
+        let app_icon = find_icon(app_name, &self.config).unwrap_or("".into());
 
         let mut expire_timeout = expire_timeout;
         if expire_timeout < 0 {
@@ -94,10 +93,10 @@ impl NotificationDaemon {
                 _ => None,
             });
             match urgency {
-                Some(0) => expire_timeout = config_main.timeout.low as i32 * 1000,
-                Some(1) => expire_timeout = config_main.timeout.normal as i32 * 1000,
-                Some(2) => expire_timeout = config_main.timeout.critical as i32 * 1000,
-                _ => expire_timeout = config_main.timeout.normal as i32 * 1000,
+                Some(0) => expire_timeout = self.config.timeout.low as i32 * 1000,
+                Some(1) => expire_timeout = self.config.timeout.normal as i32 * 1000,
+                Some(2) => expire_timeout = self.config.timeout.critical as i32 * 1000,
+                _ => expire_timeout = self.config.timeout.normal as i32 * 1000,
             }
         }
 
@@ -122,7 +121,7 @@ impl NotificationDaemon {
         let mut notifications_history = self.notifications_history.lock().await;
         notifications_history.push(history_notification);
         // Release the lock before updating the notifications
-        if notifications_history.len() > config_main.max_notifications as usize {
+        if notifications_history.len() > self.config.max_notifications as usize {
             notifications_history.remove(0);
         }
         drop(notifications_history);
@@ -136,12 +135,10 @@ impl NotificationDaemon {
                 sleep(Duration::from_millis(expire_timeout as u64)).await;
                 let mut notifications = notifications.lock().await;
                 if let Some(notif) = notifications.remove(&id) {
-                    if let Ok(config) = config_thread.try_lock() {
-                        if !notif.timeout_cancelled {
-                            eww_update_notifications(&config, &notifications);
-                            if notifications.is_empty() {
-                                eww_close_notifications(&config);
-                            }
+                    if !notif.timeout_cancelled {
+                        eww_update_notifications(&config_thread, &notifications);
+                        if notifications.is_empty() {
+                            eww_close_notifications(&config_thread);
                         }
                     }
                 }
@@ -161,7 +158,7 @@ impl NotificationDaemon {
 
         let mut notifications = self.notifications.lock().await;
         notifications.insert(id, notification);
-        eww_update_notifications(&config_main, &notifications);
+        eww_update_notifications(&self.config, &notifications);
 
         Ok(id)
     }
@@ -170,17 +167,9 @@ impl NotificationDaemon {
         let mut notifications = self.notifications.lock().await;
         if notifications.remove(&id).is_some() {
             println!("Notification with ID {} closed", id);
-            let config = self.config.try_lock();
-            if config.is_err() {
-                println!("Failed to lock config");
-                return Err(zbus::fdo::Error::Failed(
-                    "Failed to lock config".to_string(),
-                ));
-            }
-            let config = config.unwrap();
-            eww_update_notifications(&config, &notifications);
+            eww_update_notifications(&self.config, &notifications);
             if notifications.is_empty() {
-                eww_close_notifications(&config);
+                eww_close_notifications(&self.config);
             }
             let dest: Option<&str> = None;
             let conn = self.connection.lock().await;
@@ -212,64 +201,32 @@ impl NotificationDaemon {
 
     pub async fn open_history(&self) -> Result<()> {
         println!("Getting history");
-        let config = self.config.try_lock();
-        if config.is_err() {
-            println!("Failed to lock config");
-            return Err(zbus::fdo::Error::Failed(
-                "Failed to lock config".to_string(),
-            ));
-        }
-        let config = config.unwrap();
         let history = self.notifications_history.lock().await;
-        eww_update_history(&config, &history);
+        eww_update_history(&self.config, &history);
         Ok(())
     }
 
     pub async fn close_history(&self) -> Result<()> {
         println!("Closing history");
-        let config = self.config.try_lock();
-        if config.is_err() {
-            println!("Failed to lock config");
-            return Err(zbus::fdo::Error::Failed(
-                "Failed to lock config".to_string(),
-            ));
-        }
-        let config = config.unwrap();
-        eww_close_history(&config);
+        eww_close_history(&self.config);
         Ok(())
     }
 
     pub async fn toggle_history(&self) -> Result<()> {
         println!("Toggling history");
-        let config = self.config.try_lock();
-        if config.is_err() {
-            println!("Failed to lock config");
-            return Err(zbus::fdo::Error::Failed(
-                "Failed to lock config".to_string(),
-            ));
-        }
-        let config = config.unwrap();
         let history = self.notifications_history.lock().await;
-        eww_toggle_history(&config, &history);
+        eww_toggle_history(&self.config, &history);
         Ok(())
     }
 
     pub async fn reply_close(&self, id: u32) -> Result<()> {
         println!("Closing reply window");
         let mut notifications = self.notifications.lock().await;
-        let config = self.config.try_lock();
-        if config.is_err() {
-            println!("Failed to lock config");
-            return Err(zbus::fdo::Error::Failed(
-                "Failed to lock config".to_string(),
-            ));
-        }
-        let config = config.unwrap();
         if let Some(notification) = notifications.get_mut(&id) {
             notification.actions.clear();
-            eww_update_notifications(&config, &notifications);
+            eww_update_notifications(&self.config, &notifications);
         }
-        eww_close_window(&config, &config.eww_reply_window).map_err(|e| {
+        eww_close_window(&self.config, &self.config.eww_reply_window).map_err(|e| {
             eprintln!("Failed to close reply window: {}", e);
             zbus::fdo::Error::Failed("Failed to close reply window".to_string())
         })?;

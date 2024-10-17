@@ -49,7 +49,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     })?;
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
-    let cfg = Arc::new(Mutex::new(cfg));
+    let cfg = Arc::new(cfg);
 
     // Initialize daemon-specific structures
     let connection = Connection::session().await?;
@@ -100,12 +100,6 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                 }
                 DaemonActions::ActionInvoked(id, action) => {
                     if action == "inline-reply" {
-                        let cfg = cfg.try_lock();
-                        if cfg.is_err() {
-                            eprintln!("Failed to lock config");
-                            continue;
-                        }
-                        let cfg = cfg.unwrap();
                         println!("Opening inline reply window");
                         let eww_widget_str = &eww_create_reply_widget(&cfg, id);
                         println!("{}", eww_widget_str);
