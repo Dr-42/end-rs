@@ -67,7 +67,6 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         .await?;
 
     tokio::spawn(async move {
-        let cfg = Arc::clone(&cfg);
         while let Some(message) = rx.recv().await {
             let iface_ref = conn
                 .object_server()
