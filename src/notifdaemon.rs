@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use zbus::fdo::Result;
@@ -39,7 +39,7 @@ pub struct HistoryNotification {
 pub struct NotificationDaemon {
     pub config: Arc<Config>,
     pub notifications: Arc<Mutex<HashMap<u32, Notification>>>,
-    pub notifications_history: Arc<Mutex<Vec<HistoryNotification>>>,
+    pub notifications_history: Arc<RwLock<Vec<HistoryNotification>>>,
     pub connection: Arc<Mutex<zbus::Connection>>,
     pub next_id: u32,
 }
@@ -118,7 +118,7 @@ impl NotificationDaemon {
             summary: summary.to_string(),
             body: body.to_string(),
         };
-        let mut notifications_history = self.notifications_history.lock().await;
+        let mut notifications_history = self.notifications_history.write().await;
         notifications_history.push(history_notification);
         // Release the lock before updating the notifications
         if notifications_history.len() > self.config.max_notifications as usize {
@@ -201,7 +201,7 @@ impl NotificationDaemon {
 
     pub async fn open_history(&self) -> Result<()> {
         println!("Getting history");
-        let history = self.notifications_history.lock().await;
+        let history = self.notifications_history.read().await;
         eww_update_history(&self.config, &history);
         Ok(())
     }
@@ -214,7 +214,7 @@ impl NotificationDaemon {
 
     pub async fn toggle_history(&self) -> Result<()> {
         println!("Toggling history");
-        let history = self.notifications_history.lock().await;
+        let history = self.notifications_history.read().await;
         eww_toggle_history(&self.config, &history);
         Ok(())
     }
