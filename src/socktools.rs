@@ -1,11 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use zbus::conn::Builder;
 use zbus::fdo::Result;
 use zbus::Connection;
@@ -49,16 +48,16 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     })?;
 
     let (tx, mut rx) = mpsc::channel::<String>(100);
-    let cfg = Arc::new(Mutex::new(cfg));
+    let cfg = Arc::new(cfg);
 
     // Initialize daemon-specific structures
     let connection = Connection::session().await?;
     let daemon = NotificationDaemon {
-        notifications: Arc::new(Mutex::new(HashMap::new())),
-        notifications_history: Arc::new(Mutex::new(Vec::new())),
+        notifications: Default::default(),
+        notifications_history: Default::default(),
         config: Arc::clone(&cfg),
         next_id: 0,
-        connection: Arc::new(Mutex::new(connection)),
+        connection,
     };
 
     let conn = Builder::session()?
@@ -67,13 +66,8 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         .build()
         .await?;
 
-    let conn = Arc::new(Mutex::new(conn));
-
     tokio::spawn(async move {
-        let cfg = Arc::clone(&cfg);
         while let Some(message) = rx.recv().await {
-            let conn = conn.lock().await;
-
             let iface_ref = conn
                 .object_server()
                 .interface::<_, NotificationDaemon>("/org/freedesktop/Notifications")
@@ -100,12 +94,6 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                 }
                 DaemonActions::ActionInvoked(id, action) => {
                     if action == "inline-reply" {
-                        let cfg = cfg.try_lock();
-                        if cfg.is_err() {
-                            eprintln!("Failed to lock config");
-                            continue;
-                        }
-                        let cfg = cfg.unwrap();
                         println!("Opening inline reply window");
                         let eww_widget_str = &eww_create_reply_widget(&cfg, id);
                         println!("{}", eww_widget_str);
