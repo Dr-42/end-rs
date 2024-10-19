@@ -2,7 +2,25 @@ use crate::config::{Config, NotificationWindow};
 use crate::notifdaemon::{HistoryNotification, Notification};
 use std::collections::HashMap;
 
+pub fn eww_is_window_open(cfg: &Config, window: &str) -> bool {
+    let mut cmd = String::new();
+    cmd.push_str(&cfg.eww_binary_path);
+    cmd.push_str(" active-windows");
+    println!("{}", cmd);
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&cmd)
+        .output()
+        .expect("Failed to execute command");
+    let output = String::from_utf8_lossy(&output.stdout);
+    output.contains(format!("{}: {}\n", window, window).as_str())
+}
+
 pub fn eww_open_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
+    if eww_is_window_open(cfg, window) {
+        return Ok(());
+    }
+
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" open ");
