@@ -146,6 +146,10 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
 pub fn eww_update_history(cfg: &Config, history: &[HistoryNotification]) {
     let widgets = eww_create_history_value(cfg, history);
     eww_update_value(cfg, &cfg.eww_history_var, &widgets);
+}
+
+pub fn eww_update_and_open_history(cfg: &Config, history: &[HistoryNotification]) {
+    eww_update_history(cfg, history);
     let _res = eww_open_window(cfg, &cfg.eww_history_window);
 }
 

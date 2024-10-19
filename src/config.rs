@@ -39,6 +39,8 @@ pub struct Config {
     pub max_notifications: u32,
     pub notification_orientation: String,
     pub timeout: TimeoutConfig,
+    #[serde(default)]
+    pub update_history: bool,
 }
 
 impl Default for Config {
@@ -67,6 +69,7 @@ impl Default for Config {
                 normal: 10,
                 critical: 0,
             },
+            update_history: false,
         }
     }
 }

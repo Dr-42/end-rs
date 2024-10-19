@@ -151,6 +151,8 @@ eww_reply_text = "end-reply-text"
 max_notifications = 10
 ### The orientation of the notifications. Can be either "v" or "h" or "vertical" or "horizontal" (Basically the eww orientation value)
 notification_orientation = "v"
+### Update history when a new notification is added
+update_history = false
 
 ### The timeouts for different types of notifications in seconds. A value of 0 means that the notification will never timeout
 [timeout]
