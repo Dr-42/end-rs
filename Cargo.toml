@@ -1,6 +1,6 @@
 [package]
 name = "end-rs"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 description = "Eww notification daemon in rust"
 license = "BSD-2-Clause"
