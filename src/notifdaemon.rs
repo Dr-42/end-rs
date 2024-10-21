@@ -11,10 +11,7 @@ use zbus::object_server::SignalContext;
 use zvariant::Value;
 
 use crate::config::Config;
-use crate::ewwface::{
-    eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history,
-    eww_update_history, eww_update_notifications,
-};
+use crate::ewwface::{eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history, eww_update_and_open_history, eww_update_history, eww_update_notifications};
 use crate::utils::{find_icon, save_icon};
 
 pub struct Notification {
@@ -100,7 +97,7 @@ impl NotificationDaemon {
             }
         }
 
-        // create a actions vector of type Vec<(String, String)> where even elements are keys and
+        // create an actions vector of type Vec<(String, String)> where even elements are keys and
         // odd elements are values
         let actions: Vec<(String, String)> = actions
             .chunks(2)
@@ -125,6 +122,10 @@ impl NotificationDaemon {
             notifications_history.remove(0);
         }
         drop(notifications_history);
+
+        if self.config.update_history {
+            self.update_history().await?;
+        }
 
         let mut join_handle = None;
         if expire_timeout != 0 {
@@ -199,10 +200,16 @@ impl NotificationDaemon {
         ))
     }
 
+    pub async fn update_history(&self) -> Result<()> {
+        let history = self.notifications_history.read().await;
+        eww_update_history(&self.config, &history);
+        Ok(())
+    }
+
     pub async fn open_history(&self) -> Result<()> {
         println!("Getting history");
         let history = self.notifications_history.read().await;
-        eww_update_history(&self.config, &history);
+        eww_update_and_open_history(&self.config, &history);
         Ok(())
     }
 
