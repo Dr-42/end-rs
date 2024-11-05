@@ -11,7 +11,10 @@ use zbus::object_server::SignalContext;
 use zvariant::Value;
 
 use crate::config::Config;
-use crate::ewwface::{eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history, eww_update_and_open_history, eww_update_history, eww_update_notifications};
+use crate::ewwface::{
+    eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history,
+    eww_update_and_open_history, eww_update_history, eww_update_notifications,
+};
 use crate::utils::{find_icon, save_icon};
 
 pub struct Notification {
@@ -108,23 +111,32 @@ impl NotificationDaemon {
             })
             .collect();
 
-        let history_notification = HistoryNotification {
-            app_name: app_name.to_string(),
-            icon: icon.clone(),
-            app_icon: app_icon.clone(),
-            summary: summary.to_string(),
-            body: body.to_string(),
-        };
-        let mut notifications_history = self.notifications_history.write().await;
-        notifications_history.push(history_notification);
-        // Release the lock before updating the notifications
-        if notifications_history.len() > self.config.max_notifications as usize {
-            notifications_history.remove(0);
-        }
-        drop(notifications_history);
+        let is_transient = hints
+            .get("transient")
+            .and_then(|value| match value {
+                Value::Bool(transient) => Some(*transient),
+                _ => None,
+            })
+            .unwrap_or(false);
 
-        if self.config.update_history {
-            self.update_history().await?;
+        if !is_transient {
+            let history_notification = HistoryNotification {
+                app_name: app_name.to_string(),
+                icon: icon.clone(),
+                app_icon: app_icon.clone(),
+                summary: summary.to_string(),
+                body: body.to_string(),
+            };
+            let mut notifications_history = self.notifications_history.write().await;
+            notifications_history.push(history_notification);
+            // Release the lock before updating the notifications
+            if notifications_history.len() > self.config.max_notifications as usize {
+                notifications_history.remove(0);
+            }
+
+            if self.config.update_history {
+                self.update_history().await?;
+            }
         }
 
         let mut join_handle = None;
