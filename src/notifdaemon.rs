@@ -15,6 +15,7 @@ use crate::ewwface::{
     eww_close_history, eww_close_notifications, eww_close_window, eww_toggle_history,
     eww_update_and_open_history, eww_update_history, eww_update_notifications,
 };
+use crate::log;
 use crate::utils::{find_icon, save_icon};
 
 pub struct Notification {
@@ -57,6 +58,7 @@ impl NotificationDaemon {
         hints: HashMap<&str, zvariant::Value<'_>>,
         expire_timeout: i32,
     ) -> Result<u32> {
+        log!("Notifying {} - {}", app_name, body);
         let id = if replaces_id != 0 {
             replaces_id
         } else {
@@ -120,6 +122,7 @@ impl NotificationDaemon {
             .unwrap_or(false);
 
         if !is_transient {
+            log!("Notification is not transient");
             let history_notification = HistoryNotification {
                 app_name: app_name.to_string(),
                 icon: icon.clone(),
@@ -146,12 +149,14 @@ impl NotificationDaemon {
             let config_thread = Arc::clone(&self.config);
             join_handle = Some(tokio::spawn(async move {
                 sleep(Duration::from_millis(expire_timeout as u64)).await;
-                let mut notifications = notifications.lock().await;
-                if let Some(notif) = notifications.remove(&id) {
-                    if !notif.timeout_cancelled {
-                        eww_update_notifications(&config_thread, &notifications);
-                        if notifications.is_empty() {
-                            eww_close_notifications(&config_thread);
+                let notifications = notifications.try_lock();
+                if let Ok(mut notifications) = notifications {
+                    if let Some(notif) = notifications.remove(&id) {
+                        if !notif.timeout_cancelled {
+                            eww_update_notifications(&config_thread, &notifications);
+                            if notifications.is_empty() {
+                                eww_close_notifications(&config_thread);
+                            }
                         }
                     }
                 }
@@ -169,32 +174,36 @@ impl NotificationDaemon {
             timeout_future: join_handle,
         };
 
-        let mut notifications = self.notifications.lock().await;
-        notifications.insert(id, notification);
-        eww_update_notifications(&self.config, &notifications);
-
+        let notifications = self.notifications.try_lock();
+        if let Ok(mut notifications) = notifications {
+            notifications.insert(id, notification);
+            eww_update_notifications(&self.config, &notifications);
+        }
+        log!("Notification with ID {} created", id);
         Ok(id)
     }
 
     pub async fn close_notification(&self, id: u32) -> Result<()> {
-        let mut notifications = self.notifications.lock().await;
-        if notifications.remove(&id).is_some() {
-            println!("Notification with ID {} closed", id);
-            eww_update_notifications(&self.config, &notifications);
-            if notifications.is_empty() {
-                eww_close_notifications(&self.config);
+        let notifications = self.notifications.try_lock();
+        if let Ok(mut notifications) = notifications {
+            if notifications.remove(&id).is_some() {
+                println!("Notification with ID {} closed", id);
+                eww_update_notifications(&self.config, &notifications);
+                if notifications.is_empty() {
+                    eww_close_notifications(&self.config);
+                }
+                let dest: Option<&str> = None;
+                self.connection
+                    .emit_signal(
+                        dest,
+                        "/org/freedesktop/Notifications",
+                        "org.freedesktop.Notifications",
+                        "NotificationClosed",
+                        &(id, 3_u32),
+                    )
+                    .await
+                    .unwrap();
             }
-            let dest: Option<&str> = None;
-            self.connection
-                .emit_signal(
-                    dest,
-                    "/org/freedesktop/Notifications",
-                    "org.freedesktop.Notifications",
-                    "NotificationClosed",
-                    &(id, 3_u32),
-                )
-                .await
-                .unwrap();
         }
         Ok(())
     }
@@ -240,7 +249,14 @@ impl NotificationDaemon {
 
     pub async fn reply_close(&self, id: u32) -> Result<()> {
         println!("Closing reply window");
-        let mut notifications = self.notifications.lock().await;
+        let notifications = self.notifications.try_lock();
+        if let Err(e) = notifications {
+            eprintln!("Failed to lock notifications: {}", e);
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock notifications".to_string(),
+            ));
+        }
+        let mut notifications = notifications.unwrap();
         if let Some(notification) = notifications.get_mut(&id) {
             notification.actions.clear();
             eww_update_notifications(&self.config, &notifications);
@@ -276,7 +292,14 @@ impl NotificationDaemon {
 
 impl NotificationDaemon {
     pub async fn disable_timeout(&self, id: u32) -> Result<()> {
-        let mut notifications = self.notifications.lock().await;
+        let notifications = self.notifications.try_lock();
+        if let Err(e) = notifications {
+            eprintln!("Failed to lock notifications: {}", e);
+            return Err(zbus::fdo::Error::Failed(
+                "Failed to lock notifications".to_string(),
+            ));
+        }
+        let mut notifications = notifications.unwrap();
         if let Some(notification) = notifications.get_mut(&id) {
             notification.timeout_cancelled = true;
         }

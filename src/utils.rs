@@ -1,5 +1,5 @@
 use icon_loader::IconLoader;
-use std::{fs, path::Path};
+use std::{fs, io::Write, path::Path};
 use zvariant::{Structure, Value};
 
 use crate::config::Config;
@@ -72,4 +72,27 @@ pub fn save_icon(icon_data: &Structure, id: u32) -> Option<String> {
         return None;
     }
     Some(icon_path)
+}
+
+pub fn log(args: std::fmt::Arguments) {
+    let message = format!(
+        "[{}] {}",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+        args
+    );
+    let logfile_path = "/tmp/end.log";
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(logfile_path)
+        .unwrap();
+    file.write_all(message.as_bytes()).unwrap();
+    file.write_all(b"\n").unwrap();
+}
+
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => {
+        $crate::utils::log(format_args!($($arg)*))
+    };
 }

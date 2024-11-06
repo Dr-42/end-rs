@@ -11,6 +11,7 @@ use zbus::Connection;
 
 use crate::config::Config;
 use crate::ewwface::{eww_create_reply_widget, eww_open_window, eww_update_value};
+use crate::log;
 use crate::notifdaemon::NotificationDaemon;
 
 #[derive(Serialize, Deserialize)]
@@ -81,19 +82,28 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
 
             match message {
                 DaemonActions::CloseNotification(id) => {
+                    log!("Closing notification {}", id);
                     iface.close_notification(id).await.unwrap();
+                    log!("Notification {} closed", id);
                 }
                 DaemonActions::OpenHistory => {
+                    log!("Opening notification history");
                     iface.open_history().await.unwrap();
+                    log!("Notification history opened");
                 }
                 DaemonActions::CloseHistory => {
+                    log!("Closing notification history");
                     iface.close_history().await.unwrap();
+                    log!("Notification history closed");
                 }
                 DaemonActions::ToggleHistory => {
+                    log!("Toggling notification history");
                     iface.toggle_history().await.unwrap();
+                    log!("Notification history toggled");
                 }
                 DaemonActions::ActionInvoked(id, action) => {
                     if action == "inline-reply" {
+                        log!("Opening inline reply for notification {}", id);
                         println!("Opening inline reply window");
                         let eww_widget_str = &eww_create_reply_widget(&cfg, id);
                         println!("{}", eww_widget_str);
@@ -101,13 +111,15 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                         eww_update_value(&cfg, &cfg.eww_reply_var, eww_widget_str);
                         let _ = eww_open_window(&cfg, &cfg.eww_reply_window);
                         iface.disable_timeout(id).await.unwrap();
+                        log!("Inline reply for notification {} opened", id);
                     } else {
+                        log!("Invoking action {} for notification {}", action, id);
                         conn.emit_signal(
                             dest,
                             "/org/freedesktop/Notifications",
                             "org.freedesktop.Notifications",
                             "ActionInvoked",
-                            &(id, action),
+                            &(id, &action),
                         )
                         .await
                         .unwrap();
@@ -120,23 +132,27 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                         )
                         .await
                         .unwrap();
+                        log!("Invoked action {} for notification {}", action, id);
                     }
                 }
                 DaemonActions::ReplySend(id, reply) => {
+                    log!("Sending reply {} for notification {}", reply, id);
                     println!("Replying to notification {}", id);
                     conn.emit_signal(
                         dest,
                         "/org/freedesktop/Notifications",
                         "org.freedesktop.Notifications",
                         "NotificationReplied",
-                        &(id, reply),
+                        &(id, &reply),
                     )
                     .await
                     .unwrap();
                     iface.reply_close(id).await.unwrap();
                     iface.close_notification(id).await.unwrap();
+                    log!("Sent reply {} for notification {}", reply, id);
                 }
                 DaemonActions::ReplyClose(id) => {
+                    log!("Closing reply for notification {}", id);
                     println!("Closing reply for notification {}", id);
                     conn.call_method(
                         Some("org.freedesktop.Notifications"),
@@ -148,6 +164,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     .await
                     .unwrap();
                     iface.reply_close(id).await.unwrap();
+                    log!("Closed reply for notification {}", id);
                 }
             };
         }

@@ -1,12 +1,14 @@
 use crate::config::{Config, NotificationWindow};
+use crate::log;
 use crate::notifdaemon::{HistoryNotification, Notification};
 use std::collections::HashMap;
 
 pub fn eww_is_window_open(cfg: &Config, window: &str) -> bool {
+    log!("Checking if {} is open", window);
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" active-windows");
-    println!("{}", cmd);
+    //println!("{}", cmd);
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
@@ -17,7 +19,9 @@ pub fn eww_is_window_open(cfg: &Config, window: &str) -> bool {
 }
 
 pub fn eww_open_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
+    log!("Opening {}", window);
     if eww_is_window_open(cfg, window) {
+        log!("{} is already open", window);
         return Ok(());
     }
 
@@ -25,41 +29,47 @@ pub fn eww_open_window(cfg: &Config, window: &str) -> Result<(), std::io::Error>
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" open ");
     cmd.push_str(window);
-    println!("{}", cmd);
+    //println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
         .spawn()?;
+    log!("{} opened", window);
     Ok(())
 }
 
 pub fn eww_close_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
+    log!("Closing {}", window);
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" close ");
     cmd.push_str(window);
-    println!("{}", cmd);
+    //println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
         .spawn()?;
+    log!("{} closed", window);
     Ok(())
 }
 
 pub fn eww_toggle_window(cfg: &Config, window: &str) -> Result<(), std::io::Error> {
+    log!("Toggling {}", window);
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
     cmd.push_str(" open --toggle ");
     cmd.push_str(window);
-    println!("{}", cmd);
+    //println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
         .spawn()?;
+    log!("{} toggled", window);
     Ok(())
 }
 
 pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
+    log!("Updating {} with {}", var, value);
     let value = shlex::try_quote(value).unwrap().replace('\n', "<br>");
     let mut cmd = String::new();
     cmd.push_str(&cfg.eww_binary_path);
@@ -69,12 +79,13 @@ pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
     //cmd.push('\'');
     cmd.push_str(&value);
     //cmd.push('\'');
-    println!("{}", cmd);
+    //println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
         .spawn()
         .expect("Failed to execute command");
+    log!("{} updated", var);
 }
 
 pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notification>) -> String {
