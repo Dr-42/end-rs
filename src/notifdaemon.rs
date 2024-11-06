@@ -7,7 +7,7 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use zbus::fdo::Result;
 use zbus::interface;
-use zbus::object_server::SignalContext;
+use zbus::object_server::SignalEmitter;
 use zvariant::Value;
 
 use crate::config::Config;
@@ -65,6 +65,7 @@ impl NotificationDaemon {
             self.next_id += 1;
             self.next_id
         };
+        log!("ID: {}", id);
         let icon = hints
             .get("image_data")
             .and_then(|value| match value {
@@ -85,8 +86,11 @@ impl NotificationDaemon {
                 }
             })
             .unwrap_or_else(|| app_icon.to_string());
+        log!("Icon: {}", icon);
 
         let app_icon = find_icon(app_name, &self.config).unwrap_or("".into());
+
+        log!("AppIcon: {}", app_icon);
 
         let mut expire_timeout = expire_timeout;
         if expire_timeout < 0 {
@@ -101,6 +105,7 @@ impl NotificationDaemon {
                 _ => expire_timeout = self.config.timeout.normal as i32 * 1000,
             }
         }
+        log!("Expire timeout: {}", expire_timeout);
 
         // create an actions vector of type Vec<(String, String)> where even elements are keys and
         // odd elements are values
@@ -270,21 +275,21 @@ impl NotificationDaemon {
 
     #[zbus(signal)]
     pub async fn action_invoked(
-        ctx: &SignalContext<'_>,
+        ctx: &SignalEmitter<'_>,
         id: u32,
         action_key: &str,
     ) -> zbus::Result<()>;
 
     #[zbus(signal)]
     pub async fn notification_closed(
-        ctx: &SignalContext<'_>,
+        ctx: &SignalEmitter<'_>,
         id: u32,
         reason: u32,
     ) -> zbus::Result<()>;
 
     #[zbus(signal)]
     pub async fn notification_replied(
-        ctx: &SignalContext<'_>,
+        ctx: &SignalEmitter<'_>,
         id: u32,
         message: &str,
     ) -> zbus::Result<()>;

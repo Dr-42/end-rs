@@ -3,26 +3,73 @@ use std::{fs, io::Write, path::Path};
 use zvariant::{Structure, Value};
 
 use crate::config::Config;
+use crate::log;
+
+use std::sync::{mpsc, Arc};
+use std::thread;
+use std::time::Duration;
 
 pub fn find_icon(icon_name: &str, config: &Config) -> Option<String> {
     // Check whether the icon needs to be searched
+    log!("Icon name: {}", icon_name);
     let mut loader = IconLoader::new();
+    log!("Created IconLoader");
     loader.set_search_paths(&config.icon_dirs);
     loader.set_theme_name_provider(config.icon_theme.clone());
     let loader = match loader.update_theme_name() {
         Ok(_) => loader,
         Err(_) => return None,
     };
+    let loader = Arc::new(loader);
+    log!("Updated IconLoader");
 
-    if icon_name.starts_with('/') {
+    if icon_name.is_empty() {
+        log!("Empty icon name");
+        None
+    } else if icon_name.starts_with('/') {
+        log!("Found icon: {:?}", icon_name);
         Some(icon_name.to_string())
     } else if icon_name.starts_with('~') {
+        log!("Found icon: {:?}", icon_name);
         Some(icon_name.replace('~', format!("{}/", std::env::var("HOME").unwrap()).as_str()))
-    } else if let Some(icon) = loader.load_icon(icon_name) {
-        let icon_path = icon.file_for_size(64).path().to_str().unwrap().to_string();
-        Some(icon_path)
     } else {
-        None
+        // I believe that IconLoader sometimes locks up if there is no icon for it to look up for.
+        // Hence we shove it into a thread and wait it out. In case it locks up, the daemon still
+        // keeps running
+
+        log!("Searching for icon: {}", icon_name);
+
+        // Use a channel to communicate between the threads
+        let (tx, rx) = mpsc::channel();
+
+        // Spawn a new thread to execute the potentially blocking code
+        let icon_name = icon_name.to_string(); // Clone `icon_name` to move it into the thread
+        let loader_clone = loader.clone(); // Clone `loader` to move it into the thread
+        thread::spawn(move || {
+            let icon = loader_clone.load_icon(&icon_name);
+            // Send the result back to the main thread
+            let _ = tx.send(icon);
+        });
+
+        // Set a timeout for the operation
+        match rx.recv_timeout(Duration::from_secs(2)) {
+            // adjust duration as needed
+            Ok(Some(icon)) => {
+                log!("Loaded icon");
+                let icon_path = icon.file_for_size(64).path().to_str().unwrap().to_string();
+                log!("Found icon: {:?}", icon_path);
+                Some(icon_path)
+            }
+            Ok(None) => {
+                log!("No icon found");
+                None
+            }
+            Err(_) => {
+                // If the thread doesn't respond in time (i.e., it locked up), log an error and return None
+                log!("Icon loading timed out");
+                None
+            }
+        }
     }
 }
 
