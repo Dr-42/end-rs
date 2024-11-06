@@ -137,14 +137,18 @@ impl NotificationDaemon {
             };
             let mut notifications_history = self.notifications_history.write().await;
             notifications_history.push(history_notification);
+            log!("Updated history");
             // Release the lock before updating the notifications
             if notifications_history.len() > self.config.max_notifications as usize {
                 notifications_history.remove(0);
             }
 
+            drop(notifications_history);
             if self.config.update_history {
                 self.update_history().await?;
+                log!("Updated history for update_history");
             }
+            log!("Updated history");
         }
 
         let mut join_handle = None;
