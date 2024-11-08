@@ -24,6 +24,7 @@ pub struct Notification {
     pub app_icon: String,
     pub summary: String,
     pub body: String,
+    pub urgency: String,
     pub actions: Vec<(String, String)>,
     pub timeout_cancelled: bool,
     pub timeout_future: Option<JoinHandle<()>>,
@@ -35,6 +36,7 @@ pub struct HistoryNotification {
     pub app_icon: String,
     pub summary: String,
     pub body: String,
+    pub urgency: String,
 }
 
 pub struct NotificationDaemon {
@@ -91,13 +93,13 @@ impl NotificationDaemon {
         let app_icon = find_icon(app_name, &self.config).unwrap_or("".into());
 
         log!("AppIcon: {}", app_icon);
+        let urgency = hints.get("urgency").and_then(|value| match value {
+            Value::U8(urgency) => Some(*urgency),
+            _ => None,
+        });
 
         let mut expire_timeout = expire_timeout;
         if expire_timeout < 0 {
-            let urgency = hints.get("urgency").and_then(|value| match value {
-                Value::U8(urgency) => Some(*urgency),
-                _ => None,
-            });
             match urgency {
                 Some(0) => expire_timeout = self.config.timeout.low as i32 * 1000,
                 Some(1) => expire_timeout = self.config.timeout.normal as i32 * 1000,
@@ -105,6 +107,13 @@ impl NotificationDaemon {
                 _ => expire_timeout = self.config.timeout.normal as i32 * 1000,
             }
         }
+
+        let urgency_str = match urgency {
+            Some(0) => "low",
+            Some(1) => "normal",
+            Some(2) => "critical",
+            _ => "normal",
+        };
         log!("Expire timeout: {}", expire_timeout);
 
         // create an actions vector of type Vec<(String, String)> where even elements are keys and
@@ -134,6 +143,7 @@ impl NotificationDaemon {
                 app_icon: app_icon.clone(),
                 summary: summary.to_string(),
                 body: body.to_string(),
+                urgency: urgency_str.to_string(),
             };
             let mut notifications_history = self.notifications_history.write().await;
             notifications_history.push(history_notification);
@@ -179,6 +189,7 @@ impl NotificationDaemon {
             actions,
             summary: summary.to_string(),
             body: body.to_string(),
+            urgency: urgency_str.to_string(),
             timeout_cancelled: false,
             timeout_future: join_handle,
         };

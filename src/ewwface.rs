@@ -99,10 +99,7 @@ pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
     cmd.push_str(" update ");
     cmd.push_str(var);
     cmd.push('=');
-    //cmd.push('\'');
     cmd.push_str(&value);
-    //cmd.push('\'');
-    //println!("{}", cmd);
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
@@ -131,6 +128,7 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
         }
         action_string.push(']');
 
+        // NOTE: Keeping this as a comment for future reference in case eww_val! is not working
         // let widget_string = format!(
         //     "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
         //     cfg.eww_notification_widget,
@@ -152,7 +150,8 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
                 "icon": notif.1.icon,
                 "app_icon": notif.1.app_icon,
                 "id": notif.0,
-                "summary": notif.1.summary
+                "summary": notif.1.summary,
+                "urgency": notif.1.urgency
             })
         );
         widgets.push_str(&widget_string);
@@ -201,6 +200,7 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
     let history = history.iter().rev();
 
     for hist in history {
+        // NOTE: Keeping this as a comment for future reference in case eww_val! is not working
         // let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.app_icon, hist.summary);
         let widget_string = format!(
             "(box ({} :history \"{}\"))",
@@ -210,7 +210,8 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
                 "body": hist.body,
                 "icon": hist.icon,
                 "app_icon": hist.app_icon,
-                "summary": hist.summary
+                "summary": hist.summary,
+                "urgency": hist.urgency
             })
         );
         history_text.push_str(&widget_string);
