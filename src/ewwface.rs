@@ -3,6 +3,29 @@ use crate::log;
 use crate::notifdaemon::{HistoryNotification, Notification};
 use std::collections::HashMap;
 
+macro_rules! eww_val {
+    // Entry point for a JSON object in braces `{ ... }`
+    ({ $($key:literal : $value:expr),* $(,)? }) => {
+        {
+            let mut s = String::new();
+            s.push('{');
+            $(
+                // Add each key-value pair to the JSON object, with proper escaping
+                s.push_str(&format!("\\\"{}\\\":\\\"{}\\\",",
+                    $key,
+                    $value.to_string()
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\n", "<br>")
+                ));
+            )*
+            s.pop(); // Remove the last comma
+            s.push('}');
+            s
+        }
+    };
+}
+
 pub fn eww_is_window_open(cfg: &Config, window: &str) -> bool {
     log!("Checking if {} is open", window);
     let mut cmd = String::new();
@@ -97,10 +120,10 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
         let mut action_string = "[".to_string();
 
         for action in notif.1.actions.iter() {
-            let action_str = format!(
-                "{{\\\"id\\\":\\\"{}\\\",\\\"text\\\":\\\"{}\\\"}},",
-                action.0, action.1
-            );
+            let action_str = eww_val!({
+                "id" : action.0,
+                "action" : action.1
+            });
             action_string.push_str(&action_str);
         }
         if !notif.1.actions.is_empty() {
@@ -108,16 +131,29 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
         }
         action_string.push(']');
 
+        // let widget_string = format!(
+        //     "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
+        //     cfg.eww_notification_widget,
+        //     action_string,
+        //     notif.1.app_name,
+        //     notif.1.body,
+        //     notif.1.icon,
+        //     notif.1.app_icon,
+        //     notif.0,
+        //     notif.1.summary,
+        // );
         let widget_string = format!(
-            "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
+            "(box ({} :notification \"{}\"))",
             cfg.eww_notification_widget,
-            action_string,
-            notif.1.app_name,
-            notif.1.body,
-            notif.1.icon,
-            notif.1.app_icon,
-            notif.0,
-            notif.1.summary,
+            eww_val!({
+                "actions": action_string,
+                "application": notif.1.app_name,
+                "body": notif.1.body,
+                "icon": notif.1.icon,
+                "app_icon": notif.1.app_icon,
+                "id": notif.0,
+                "summary": notif.1.summary
+            })
         );
         widgets.push_str(&widget_string);
     }
@@ -165,7 +201,18 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
     let history = history.iter().rev();
 
     for hist in history {
-        let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.app_icon, hist.summary);
+        // let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.app_icon, hist.summary);
+        let widget_string = format!(
+            "(box ({} :history \"{}\"))",
+            cfg.eww_history_widget,
+            eww_val!({
+                "app_name": hist.app_name,
+                "body": hist.body,
+                "icon": hist.icon,
+                "app_icon": hist.app_icon,
+                "summary": hist.summary
+            })
+        );
         history_text.push_str(&widget_string);
     }
     history_text.push(')');
