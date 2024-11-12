@@ -135,10 +135,10 @@ The following fields are available in the yuck notification struct.
 
 The actions mentioned has two fields
 
-| Field  | Description                             |
-| :----- | :-------------------------------------- |
-| id     | The action id                           |
-| action | The action to be executed by the daemon |
+| Field | Description                             |
+| :---- | :-------------------------------------- |
+| id    | The action id                           |
+| text  | The action text displayed in the button |
 
 ### History
 
