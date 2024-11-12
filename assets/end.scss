@@ -3,12 +3,53 @@ $bar_fg: #abb2bf;
 $bar_border: #3b4048;
 $reply_hover: #3b4048;
 
-.end-default-notification-box {
+.end-default-notification-box-low {
     background-color: $bar_bg;
     padding: 12px;
     padding-left: 8px;
     margin: 12px;
     border-radius: 10px;
+    border: 1px dashed blue;
+}
+
+.end-default-notification-box-normal {
+    background-color: $bar_bg;
+    padding: 12px;
+    padding-left: 8px;
+    margin: 12px;
+    border-radius: 10px;
+}
+
+.end-default-notification-box-critical {
+    background-color: $bar_bg;
+    padding: 12px;
+    padding-left: 8px;
+    margin: 12px;
+    border-radius: 10px;
+    border: 2px solid #ff0000;
+}
+
+.end-default-notification-title-bar {
+    background-color: $bar_bg;
+    margin: 3px;
+    border-bottom: 1px solid $bar_border;
+}
+
+.end-default-notification-appicon {
+    margin-right: 10px;
+    margin-bottom: 5px;
+}
+
+.end-default-notification-appname {
+    color: $bar_fg;
+    margin-right: 12px;
+    font-family: 'JetBrainsMono Nerd Font';
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.end-default-notification-body-box {
+    margin-top: 12px;
 }
 
 .notification-text {
@@ -17,12 +58,12 @@ $reply_hover: #3b4048;
 }
 
 .notification-title {
-  font-weight: bold;
-  font-size: 1em;
+    font-weight: bold;
+    font-size: 1em;
 }
 
 .notification-content {
-  font-size: .8em;
+    font-size: .8em;
 }
 
 .end-notification-buttons {
@@ -49,7 +90,7 @@ $reply_hover: #3b4048;
 
 .end-notification-reply:hover:focus {
     background-color: $bar_fg;
-    color: $reply_hover;
+    color: $hourcolor;
     padding: 8px;
     border-radius: 10px;
     margin-right: 12px;
@@ -76,6 +117,30 @@ $reply_hover: #3b4048;
     background-color: $bar_bg;
     padding: 12px;
     padding-left: 8px;
+    border: 1px solid $bar_border;
+}
+
+.end-history-title-bar {
+    background-color: $bar_bg;
+    margin: 1px;
+    border-bottom: 1px solid $bar_border;
+}
+
+.end-history-appicon {
+    margin-right: 5px;
+    margin-bottom: 2px;
+}
+
+.end-history-appname {
+    color: $bar_fg;
+    margin-right: 5px;
+    font-family: 'JetBrainsMono Nerd Font';
+    font-weight: bold;
+    font-size: 10px;
+}
+
+.end-history-body-box {
+    margin-top: 3px;
 }
 
 .content-box {
