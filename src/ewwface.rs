@@ -117,10 +117,10 @@ pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notifi
         let mut action_string = "[".to_string();
 
         for action in notif.1.actions.iter() {
-            let action_str = eww_val!({
-                "id" : action.0,
-                "action" : action.1
-            });
+            let action_str = format!(
+                "{{\\\"id\\\":\\\"{}\\\",\\\"text\\\":\\\"{}\\\"}},",
+                action.0, action.1
+            );
             action_string.push_str(&action_str);
         }
         if !notif.1.actions.is_empty() {
