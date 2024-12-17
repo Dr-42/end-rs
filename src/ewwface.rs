@@ -1,28 +1,15 @@
 use crate::config::{Config, NotificationWindow};
 use crate::log;
 use crate::notifdaemon::{HistoryNotification, Notification};
+use serde_json::json;
 use std::collections::HashMap;
 
+// Macro replacement example:
 macro_rules! eww_val {
-    // Entry point for a JSON object in braces `{ ... }`
     ({ $($key:literal : $value:expr),* $(,)? }) => {
-        {
-            let mut s = String::new();
-            s.push('{');
-            $(
-                // Add each key-value pair to the JSON object, with proper escaping
-                s.push_str(&format!("\\\"{}\\\":\\\"{}\\\",",
-                    $key,
-                    $value.to_string()
-                        .replace("\\", "\\\\")
-                        .replace("\"", "\\\"")
-                        .replace("\n", "<br>")
-                ));
-            )*
-            s.pop(); // Remove the last comma
-            s.push('}');
-            s
-        }
+        serde_json::to_string(&json!({
+            $($key: $value),*
+        })).unwrap()
     };
 }
 
@@ -108,54 +95,42 @@ pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
     log!("{} updated", var);
 }
 
+pub fn quote_hexator(s: &str) -> String {
+    s.replace('"', "&#34;").replace('\'', "&#39;")
+}
+
 pub fn eww_create_notifications_value(cfg: &Config, notifs: &HashMap<u32, Notification>) -> String {
-    let mut widgets = "(box :space-evenly false :orientation \"".to_string();
-    widgets.push_str(&cfg.notification_orientation);
-    widgets.push_str("\" ");
+    let mut widgets = format!(
+        "(box :space-evenly false :orientation \"{}\" ",
+        cfg.notification_orientation
+    );
 
     for notif in notifs {
-        let mut action_string = "[".to_string();
+        let actions: Vec<_> = notif
+            .1
+            .actions
+            .iter()
+            .map(|(id, text)| json!({"id": quote_hexator(id), "text": quote_hexator(text)}))
+            .collect();
 
-        for action in notif.1.actions.iter() {
-            let action_str = format!(
-                "{{\\\"id\\\":\\\"{}\\\",\\\"text\\\":\\\"{}\\\"}},",
-                action.0, action.1
-            );
-            action_string.push_str(&action_str);
-        }
-        if !notif.1.actions.is_empty() {
-            action_string.pop();
-        }
-        action_string.push(']');
+        let widget_json = eww_val!({
+            "actions": actions,
+            "application": quote_hexator(&notif.1.app_name),
+            "body": quote_hexator(&notif.1.body),
+            "icon": quote_hexator(&notif.1.icon),
+            "app_icon": quote_hexator(&notif.1.app_icon),
+            "id": &notif.0,
+            "summary": quote_hexator(&notif.1.summary),
+            "urgency": quote_hexator(&notif.1.urgency),
+        });
 
-        // NOTE: Keeping this as a comment for future reference in case eww_val! is not working
-        // let widget_string = format!(
-        //     "(box ({} :notification \"{{\\\"actions\\\":{},\\\"application\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"id\\\":{},\\\"summary\\\":\\\"{}\\\"}}\"))",
-        //     cfg.eww_notification_widget,
-        //     action_string,
-        //     notif.1.app_name,
-        //     notif.1.body,
-        //     notif.1.icon,
-        //     notif.1.app_icon,
-        //     notif.0,
-        //     notif.1.summary,
-        // );
         let widget_string = format!(
-            "(box ({} :notification \"{}\"))",
-            cfg.eww_notification_widget,
-            eww_val!({
-                "actions": action_string,
-                "application": notif.1.app_name,
-                "body": notif.1.body,
-                "icon": notif.1.icon,
-                "app_icon": notif.1.app_icon,
-                "id": notif.0,
-                "summary": notif.1.summary,
-                "urgency": notif.1.urgency
-            })
+            "(box ({} :notification '{}'))",
+            cfg.eww_notification_widget, widget_json
         );
         widgets.push_str(&widget_string);
     }
+
     widgets.push(')');
     widgets
 }
