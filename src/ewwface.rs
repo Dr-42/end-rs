@@ -62,7 +62,7 @@ pub fn eww_close_window(cfg: &Config, window: &str) -> Result<(), std::io::Error
         .arg(&cmd)
         .spawn()?
         .wait()
-        .expect("Couldn't close window")
+        .expect("Couldn't close window");
     log!("{} closed", window);
     Ok(())
 }
