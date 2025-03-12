@@ -43,7 +43,9 @@ pub fn eww_open_window(cfg: &Config, window: &str) -> Result<(), std::io::Error>
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
-        .spawn()?;
+        .spawn()?
+        .wait()
+        .expect("Couldn't open window");
     log!("{} opened", window);
     Ok(())
 }
@@ -58,7 +60,9 @@ pub fn eww_close_window(cfg: &Config, window: &str) -> Result<(), std::io::Error
     std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
-        .spawn()?;
+        .spawn()?
+        .wait()
+        .expect("Couldn't close window");
     log!("{} closed", window);
     Ok(())
 }
@@ -91,6 +95,8 @@ pub fn eww_update_value(cfg: &Config, var: &str, value: &str) {
         .arg("-c")
         .arg(&cmd)
         .spawn()
+        .expect("Failed to execute command")
+        .wait()
         .expect("Failed to execute command");
     log!("{} updated", var);
 }
