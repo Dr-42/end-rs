@@ -1,11 +1,10 @@
 [package]
 name = "end-rs"
 authors = ["Dr-42"]
-version = "0.1.22"
+version = "0.1.23"
 edition = "2021"
 description = "Eww notification daemon in rust"
 license = "BSD-2-Clause"
-license-file = "LICENSE"
 homepage = "https://github.com/Dr-42/end-rs"
 repository = "https://github.com/Dr-42/end-rs"
 keywords = ["eww", "notification", "daemon", "rust", "zbus"]
