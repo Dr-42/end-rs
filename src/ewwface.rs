@@ -184,7 +184,7 @@ pub fn eww_create_history_value(cfg: &Config, history: &[HistoryNotification]) -
         // NOTE: Keeping this as a comment for future reference in case eww_val! is not working
         // let widget_string = format!("({} :history \"{{\\\"app_name\\\":\\\"{}\\\",\\\"body\\\":\\\"{}\\\",\\\"icon\\\":\\\"{}\\\",\\\"app_icon\\\":\\\"{}\\\",\\\"summary\\\":\\\"{}\\\"}}\")", cfg.eww_history_widget, hist.app_name, hist.body, hist.icon, hist.app_icon, hist.summary);
         let widget_string = format!(
-            "(box ({} :history \"{}\"))",
+            "(box ({} :history `{}`))",
             cfg.eww_history_widget,
             eww_val!({
                 "app_name": hist.app_name,
