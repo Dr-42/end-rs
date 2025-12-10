@@ -69,19 +69,19 @@ impl NotificationDaemon {
         };
         log!("ID: {}", id);
         let icon = hints
-            .get("icon_data")
+            .get("image_data")
             .and_then(|value| match value {
                 Value::Structure(icon_data) => save_icon(icon_data, id),
                 _ => None,
             })
             .or_else(|| {
-                hints.get("image_data").and_then(|value| match value {
+                hints.get("image-data").and_then(|value| match value {
                     Value::Structure(icon_data) => save_icon(icon_data, id),
                     _ => None,
                 })
             })
             .or_else(|| {
-                hints.get("image-data").and_then(|value| match value {
+                hints.get("icon_data").and_then(|value| match value {
                     Value::Structure(icon_data) => save_icon(icon_data, id),
                     _ => None,
                 })
@@ -92,7 +92,8 @@ impl NotificationDaemon {
                 } else {
                     None
                 }
-            }).unwrap_or_else(|| app_icon.to_string());
+            })
+            .unwrap_or_else(|| app_icon.to_string());
 
         log!("Icon: {}", icon);
 
