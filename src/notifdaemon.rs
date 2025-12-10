@@ -68,6 +68,7 @@ impl NotificationDaemon {
             self.next_id
         };
         log!("ID: {}", id);
+        let app_icon = app_icon.strip_prefix("file://").unwrap_or(app_icon);
         let icon = hints
             .get("image_data")
             .and_then(|value| match value {
@@ -96,6 +97,18 @@ impl NotificationDaemon {
             .unwrap_or_else(|| app_icon.to_string());
 
         log!("Icon: {}", icon);
+        println!(
+            "notify():
+  app_name = {:?}
+  replaces_id = {:?}
+  app_icon = {:?}
+  summary = {:?}
+  body = {:?}
+  actions = {:?}
+  hints = {:?}
+  expire_timeout = {:?}",
+            app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout
+        );
 
         let app_icon = find_icon(app_name, &self.config).unwrap_or("".into());
 
