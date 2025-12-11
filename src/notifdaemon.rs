@@ -68,6 +68,7 @@ impl NotificationDaemon {
             self.next_id
         };
         log!("ID: {}", id);
+        let app_icon = app_icon.strip_prefix("file://").unwrap_or(app_icon);
         let icon = hints
             .get("image_data")
             .and_then(|value| match value {
@@ -81,6 +82,12 @@ impl NotificationDaemon {
                 })
             })
             .or_else(|| {
+                hints.get("icon_data").and_then(|value| match value {
+                    Value::Structure(icon_data) => save_icon(icon_data, id),
+                    _ => None,
+                })
+            })
+            .or_else(|| {
                 if !app_name.is_empty() {
                     find_icon(app_icon, &self.config).or_else(|| Some(app_icon.to_string()))
                 } else {
@@ -88,8 +95,8 @@ impl NotificationDaemon {
                 }
             })
             .unwrap_or_else(|| app_icon.to_string());
-        log!("Icon: {}", icon);
 
+        log!("Icon: {}", icon);
         let app_icon = find_icon(app_name, &self.config).unwrap_or("".into());
 
         log!("AppIcon: {}", app_icon);
