@@ -20,6 +20,7 @@ fn print_help() {
     println!("  close <id> - Close a notification with the given ID");
     println!("  history <open|close|toggle> - Open, close or toggle the notification history");
     println!("  action <id> <action> - Perform an action on a notification with the given ID");
+    println!("  dnd <toggle/set> <state> - Control dnd state if using set then state should be true/false");
     println!();
     println!("  generate [css|yuck|all] - Generate the eww config files");
 }

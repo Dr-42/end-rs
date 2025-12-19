@@ -23,6 +23,8 @@ enum DaemonActions {
     ActionInvoked(u32, String),
     ReplySend(u32, String),
     ReplyClose(u32),
+    SetDnd(bool),
+    ToggleDnd,
 }
 
 async fn handle_connection(stream: UnixStream, tx: mpsc::Sender<String>) {
@@ -59,6 +61,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         config: Arc::clone(&cfg),
         next_id: 0,
         connection,
+        dnd_enabled: false,
     };
 
     let conn = Builder::session()?
@@ -75,7 +78,7 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                 .await
                 .unwrap();
 
-            let iface = iface_ref.get_mut().await;
+            let mut iface = iface_ref.get_mut().await;
             println!("Received: {}", message);
             let message: DaemonActions = serde_json::from_str(&message).unwrap();
             let dest: Option<&str> = None;
@@ -166,6 +169,22 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                     iface.reply_close(id).await.unwrap();
                     log!("Closed reply for notification {}", id);
                 }
+                DaemonActions::SetDnd(state) => {
+                    iface.dnd_enabled = state;
+                    eww_update_value(
+                        &cfg,
+                        &cfg.eww_dnd_var,
+                        iface.dnd_enabled.to_string().as_str(),
+                    );
+                }
+                DaemonActions::ToggleDnd => {
+                    iface.dnd_enabled = !iface.dnd_enabled;
+                    eww_update_value(
+                        &cfg,
+                        &cfg.eww_dnd_var,
+                        iface.dnd_enabled.to_string().as_str(),
+                    );
+                }
             };
         }
     });
@@ -241,6 +260,20 @@ pub async fn send_message(args: Vec<String>) -> Result<()> {
                         DaemonActions::ReplySend(args[2].parse::<u32>().unwrap(), args[3].clone())
                     }
                     "close" => DaemonActions::ReplyClose(args[2].parse::<u32>().unwrap()),
+                    _ => {
+                        return Err(zbus::fdo::Error::Failed("Invalid command".to_string()));
+                    }
+                }
+            }
+            "dnd" => {
+                if args.len() < 2 {
+                    return Err(zbus::fdo::Error::Failed(
+                        "Invalid command to dnd".to_string(),
+                    ));
+                }
+                match args[1].as_str() {
+                    "set" => DaemonActions::SetDnd(args[2].parse::<bool>().unwrap()),
+                    "toggle" => DaemonActions::ToggleDnd,
                     _ => {
                         return Err(zbus::fdo::Error::Failed("Invalid command".to_string()));
                     }
