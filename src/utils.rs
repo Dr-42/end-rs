@@ -56,7 +56,7 @@ pub fn find_icon(icon_name: &str, config: &Config) -> Option<String> {
             // adjust duration as needed
             Ok(Some(icon)) => {
                 log!("Loaded icon");
-                let icon_path = icon.file_for_size(64).path().to_str().unwrap().to_string();
+                let icon_path = icon.file_for_size(config.icon_size.try_into().unwrap()).path().to_str().unwrap().to_string();
                 log!("Found icon: {:?}", icon_path);
                 Some(icon_path)
             }
