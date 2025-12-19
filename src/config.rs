@@ -53,7 +53,7 @@ impl Default for Config {
                 String::from("/usr/share/pixmaps"),
             ],
             icon_theme: String::from("Adwaita"),
-            icon_size: 16,
+            icon_size: 64,
             eww_notification_window: NotificationWindow::default(),
             eww_notification_widget: String::from("end-notification"),
             eww_notification_var: String::from("end-notifications"),
