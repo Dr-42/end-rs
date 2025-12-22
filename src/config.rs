@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{env, fs, path::Path, string};
+use std::{env, fs, path::Path};
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct TimeoutConfig {
