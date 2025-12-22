@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{env, fs, path::Path};
+use std::{env, fs, path::Path, string};
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct TimeoutConfig {
@@ -24,6 +24,10 @@ fn default_icon_size() -> u32 {
     64
 }
 
+fn default_dnd_var() -> String {
+    String::from("end-dnd")
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub eww_binary_path: String,
@@ -41,6 +45,7 @@ pub struct Config {
     pub eww_reply_widget: String,
     pub eww_reply_var: String,
     pub eww_reply_text: String,
+    #[serde(default = "default_dnd_var")]
     pub eww_dnd_var: String,
     pub max_notifications: u32,
     pub notification_orientation: String,
