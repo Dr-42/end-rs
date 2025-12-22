@@ -20,12 +20,16 @@ impl Default for NotificationWindow {
         NotificationWindow::Single(String::from("notification-frame"))
     }
 }
+fn default_icon_size() -> u32 {
+    64
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub eww_binary_path: String,
     pub icon_dirs: Vec<String>,
     pub icon_theme: String,
+    #[serde(default = "default_icon_size")]
     pub icon_size: u32,
     pub eww_notification_window: NotificationWindow,
     pub eww_notification_widget: String,
