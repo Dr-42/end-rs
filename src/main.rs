@@ -2,6 +2,7 @@ use std::env;
 use zbus::fdo::Result;
 
 pub mod config;
+pub mod appstate;
 pub mod ewwface;
 pub mod generator;
 pub mod notifdaemon;
@@ -28,6 +29,7 @@ fn print_help() {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cfg = config::parse_config();
+    let state = appstate::load_state();
     let args = env::args().collect::<Vec<String>>();
 
     if args.len() < 2 {
@@ -65,7 +67,7 @@ async fn main() -> Result<()> {
         println!("Files generated");
     } else if arg == "daemon" {
         println!("Notification Daemon running...");
-        socktools::run_daemon(cfg).await?;
+        socktools::run_daemon(cfg,state).await?;
     } else {
         socktools::send_message(args[1..].to_vec()).await?;
         println!("Message sent");

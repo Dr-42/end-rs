@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
+use std::u32;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
@@ -9,6 +10,7 @@ use zbus::conn::Builder;
 use zbus::fdo::Result;
 use zbus::Connection;
 
+use crate::appstate::{self, AppState};
 use crate::config::Config;
 use crate::ewwface::{eww_create_reply_widget, eww_open_window, eww_update_value};
 use crate::log;
@@ -36,7 +38,7 @@ async fn handle_connection(stream: UnixStream, tx: mpsc::Sender<String>) {
     }
 }
 
-pub async fn run_daemon(cfg: Config) -> Result<()> {
+pub async fn run_daemon(cfg: Config, mut st: AppState) -> Result<()> {
     let path = "/tmp/rust_ipc_socket";
     if Path::new(path).exists() {
         std::fs::remove_file(path).map_err(|e| {
@@ -53,6 +55,13 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
     let (tx, mut rx) = mpsc::channel::<String>(100);
     let cfg = Arc::new(cfg);
 
+    let mut dnd_state = false;
+    if cfg.persistent_dnd == true {
+        dnd_state = st.dnd_enabled;
+    }
+
+    eww_update_value(&cfg, &cfg.eww_dnd_var, dnd_state.to_string().as_str());
+
     // Initialize daemon-specific structures
     let connection = Connection::session().await?;
     let daemon = NotificationDaemon {
@@ -61,7 +70,8 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
         config: Arc::clone(&cfg),
         next_id: 0,
         connection,
-        dnd_enabled: false,
+        dnd_enabled: dnd_state,
+        dnd_count: 0,
     };
 
     let conn = Builder::session()?
@@ -171,19 +181,69 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
                 }
                 DaemonActions::SetDnd(state) => {
                     iface.dnd_enabled = state;
+                    st.dnd_enabled = iface.dnd_enabled;
+                    manage_dnd(&st);
                     eww_update_value(
                         &cfg,
                         &cfg.eww_dnd_var,
                         iface.dnd_enabled.to_string().as_str(),
                     );
+                    if iface.dnd_enabled {
+                        iface.dnd_count = 0;
+                    } else {
+                        if iface.dnd_count != 0 {
+                            let body = format!(
+                                "{} notifications were hidden when on DnD",
+                                iface.dnd_count
+                            );
+                            iface
+                                .notify(
+                                    "end-rs",
+                                    0,
+                                    "",
+                                    "DND disabled",
+                                    &body,
+                                    Vec::new(),
+                                    std::collections::HashMap::new(),
+                                    5000,
+                                )
+                                .await
+                                .unwrap();
+                        }
+                    }
                 }
                 DaemonActions::ToggleDnd => {
                     iface.dnd_enabled = !iface.dnd_enabled;
+                    st.dnd_enabled = iface.dnd_enabled;
+                    manage_dnd(&st);
                     eww_update_value(
                         &cfg,
                         &cfg.eww_dnd_var,
                         iface.dnd_enabled.to_string().as_str(),
                     );
+                    if iface.dnd_enabled {
+                        iface.dnd_count = 0;
+                    } else {
+                        if iface.dnd_count != 0 {
+                            let body = format!(
+                                "{} notifications were hidden when on DnD",
+                                iface.dnd_count
+                            );
+                            iface
+                                .notify(
+                                    "end-rs",
+                                    0,
+                                    "",
+                                    "DND disabled",
+                                    &body,
+                                    Vec::new(),
+                                    std::collections::HashMap::new(),
+                                    5000,
+                                )
+                                .await
+                                .unwrap();
+                        }
+                    }
                 }
             };
         }
@@ -199,6 +259,10 @@ pub async fn run_daemon(cfg: Config) -> Result<()> {
             handle_connection(stream, tx).await;
         });
     }
+}
+
+pub fn manage_dnd(st: &AppState) {
+    appstate::save_state(&st);
 }
 
 pub async fn send_message(args: Vec<String>) -> Result<()> {

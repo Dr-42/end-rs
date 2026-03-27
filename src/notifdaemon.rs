@@ -46,6 +46,23 @@ pub struct NotificationDaemon {
     pub connection: zbus::Connection,
     pub next_id: u32,
     pub dnd_enabled: bool,
+    pub dnd_count: u32,
+}
+
+fn escape_pango(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            '\\' => out.push_str("&#92;"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 #[interface(name = "org.freedesktop.Notifications")]
@@ -61,6 +78,8 @@ impl NotificationDaemon {
         hints: HashMap<&str, zvariant::Value<'_>>,
         expire_timeout: i32,
     ) -> Result<u32> {
+        let summary = escape_pango(summary);
+        let body = escape_pango(body);
         log!("Notifying {} - {}", app_name, body);
         let id = if replaces_id != 0 {
             replaces_id
@@ -208,6 +227,8 @@ impl NotificationDaemon {
                 eww_update_notifications(&self.config, &notifications);
             }
             log!("Notification with ID {} created", id);
+        } else {
+            self.dnd_count = self.dnd_count +1;
         }
         Ok(id)
     }
