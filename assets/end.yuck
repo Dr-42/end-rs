@@ -4,6 +4,7 @@
 (defvar end-histories '')
 (defvar end-replies '')
 (defvar end-reply-text '')
+(defvar end-dnd false)
 
 (defwindow notification-frame
   :monitor 0

@@ -24,6 +24,14 @@ fn default_icon_size() -> u32 {
     64
 }
 
+fn default_dnd_var() -> String {
+    String::from("end-dnd")
+}
+
+fn default_dnd_persistent() -> bool {
+    false
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub eww_binary_path: String,
@@ -41,6 +49,10 @@ pub struct Config {
     pub eww_reply_widget: String,
     pub eww_reply_var: String,
     pub eww_reply_text: String,
+    #[serde(default = "default_dnd_var")]
+    pub eww_dnd_var: String,
+    #[serde(default = "default_dnd_persistent")]
+    pub persistent_dnd: bool,
     pub max_notifications: u32,
     pub notification_orientation: String,
     pub timeout: TimeoutConfig,
@@ -68,6 +80,8 @@ impl Default for Config {
             eww_reply_widget: String::from("end-reply"),
             eww_reply_var: String::from("end-replies"),
             eww_reply_text: String::from("end-reply-text"),
+            eww_dnd_var: String::from("end-dnd"),
+            persistent_dnd: false,
             max_notifications: 10,
             notification_orientation: String::from("v"),
             timeout: TimeoutConfig {

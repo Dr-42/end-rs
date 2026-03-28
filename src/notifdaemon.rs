@@ -45,6 +45,24 @@ pub struct NotificationDaemon {
     pub notifications_history: Arc<RwLock<Vec<HistoryNotification>>>,
     pub connection: zbus::Connection,
     pub next_id: u32,
+    pub dnd_enabled: bool,
+    pub dnd_count: u32,
+}
+
+fn escape_pango(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            '\\' => out.push_str("&#92;"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 #[interface(name = "org.freedesktop.Notifications")]
@@ -60,6 +78,8 @@ impl NotificationDaemon {
         hints: HashMap<&str, zvariant::Value<'_>>,
         expire_timeout: i32,
     ) -> Result<u32> {
+        let summary = escape_pango(summary);
+        let body = escape_pango(body);
         log!("Notifying {} - {}", app_name, body);
         let id = if replaces_id != 0 {
             replaces_id
@@ -167,46 +187,49 @@ impl NotificationDaemon {
             }
             log!("Updated history");
         }
-
-        let mut join_handle = None;
-        if expire_timeout != 0 {
-            // Spawn a task to handle timeout
-            let notifications = Arc::clone(&self.notifications);
-            let config_thread = Arc::clone(&self.config);
-            join_handle = Some(tokio::spawn(async move {
-                sleep(Duration::from_millis(expire_timeout as u64)).await;
-                let notifications = notifications.try_lock();
-                if let Ok(mut notifications) = notifications {
-                    if let Some(notif) = notifications.remove(&id) {
-                        if !notif.timeout_cancelled {
-                            eww_update_notifications(&config_thread, &notifications);
-                            if notifications.is_empty() {
-                                eww_close_notifications(&config_thread);
+        if !self.dnd_enabled {
+            let mut join_handle = None;
+            if expire_timeout != 0 {
+                // Spawn a task to handle timeout
+                let notifications = Arc::clone(&self.notifications);
+                let config_thread = Arc::clone(&self.config);
+                join_handle = Some(tokio::spawn(async move {
+                    sleep(Duration::from_millis(expire_timeout as u64)).await;
+                    let notifications = notifications.try_lock();
+                    if let Ok(mut notifications) = notifications {
+                        if let Some(notif) = notifications.remove(&id) {
+                            if !notif.timeout_cancelled {
+                                eww_update_notifications(&config_thread, &notifications);
+                                if notifications.is_empty() {
+                                    eww_close_notifications(&config_thread);
+                                }
                             }
                         }
                     }
-                }
-            }));
-        }
+                }));
+            }
 
-        let notification = Notification {
-            app_name: app_name.to_string(),
-            icon: icon.clone(),
-            app_icon,
-            actions,
-            summary: summary.to_string(),
-            body: body.to_string(),
-            urgency: urgency_str.to_string(),
-            timeout_cancelled: false,
-            timeout_future: join_handle,
-        };
+            let notification = Notification {
+                app_name: app_name.to_string(),
+                icon: icon.clone(),
+                app_icon,
+                actions,
+                summary: summary.to_string(),
+                body: body.to_string(),
+                urgency: urgency_str.to_string(),
+                timeout_cancelled: false,
+                timeout_future: join_handle,
+            };
 
-        let notifications = self.notifications.try_lock();
-        if let Ok(mut notifications) = notifications {
-            notifications.insert(id, notification);
-            eww_update_notifications(&self.config, &notifications);
+            let notifications = self.notifications.try_lock();
+            if let Ok(mut notifications) = notifications {
+                notifications.insert(id, notification);
+                eww_update_notifications(&self.config, &notifications);
+            }
+            log!("Notification with ID {} created", id);
+        } else {
+            self.dnd_count = self.dnd_count +1;
         }
-        log!("Notification with ID {} created", id);
         Ok(id)
     }
 
