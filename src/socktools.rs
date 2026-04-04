@@ -22,6 +22,7 @@ enum DaemonActions {
     OpenHistory,
     CloseHistory,
     ToggleHistory,
+    ClearHistory,
     ActionInvoked(u32, String),
     ReplySend(u32, String),
     ReplyClose(u32),
@@ -113,6 +114,12 @@ pub async fn run_daemon(cfg: Config, mut st: AppState) -> Result<()> {
                     log!("Toggling notification history");
                     iface.toggle_history().await.unwrap();
                     log!("Notification history toggled");
+                }
+                DaemonActions::ClearHistory => {
+                    log!("Clearing history");
+                    iface.notifications_history = Default::default();
+                    iface.update_history().await.unwrap();
+                    log!("History cleared");
                 }
                 DaemonActions::ActionInvoked(id, action) => {
                     if action == "inline-reply" {
@@ -295,6 +302,7 @@ pub async fn send_message(args: Vec<String>) -> Result<()> {
                     "open" => DaemonActions::OpenHistory,
                     "close" => DaemonActions::CloseHistory,
                     "toggle" => DaemonActions::ToggleHistory,
+                    "clear" => DaemonActions::ClearHistory,
                     _ => {
                         return Err(zbus::fdo::Error::Failed("Invalid command".to_string()));
                     }
